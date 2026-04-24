@@ -56,22 +56,18 @@ function handleClick(e) {
     let closestType = ""
     let closest = -1; // nebulous thing depending on context
 
-    console.log(where);
     if (where != null) {
         for (let i = 0; i < groundPoints.length; i++) {
             let p = groundPoints[i];
 
             let dis = length(subtract(p, where));
             if (dis < closestDis) {
-                console.log("me! " + i + " and my dis was: " + dis);
                 closestDis = dis;
                 closestType = "pin";
                 closest = i;
             }
         }
     }
-
-    console.log("found : "  + closestType);
 
     // map to global for on-move use
     selectedType = closestType;
@@ -93,7 +89,6 @@ function handleMouseMove(e) {
 }
 
 function handleRelease(e) {
-    console.log("released");
     selectedType = "";
     selected = -1;
 }
