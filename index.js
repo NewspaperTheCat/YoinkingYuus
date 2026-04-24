@@ -3,10 +3,16 @@
 // James Prendergast, Zack Robinson, Trey Bowen
 //=====================================================
 
-
 let gl;
 let program;
 let canvas;
+
+let camMatrix;
+let projMatrix;
+
+let modelLoc;
+let posLoc;
+let colLoc;
 
 window.onload = function init() {
     canvas = document.getElementById("gl-canvas");
@@ -19,11 +25,77 @@ window.onload = function init() {
     program = initShaders(gl, "vertex-shader", "fragment-shader");
     gl.useProgram(program);
 
+    camMatrix = lookAt(eye, at, up);
+    projMatrix = perspective(120, 1, .1, 15);
+    pushUniform("mat4", mult(projMatrix, camMatrix), "viewMatrix");
+
+    modelLoc = gl.getUniformLocation(program, "modelMatrix");
+    pushUniform("mat4", mat4(), modelLoc);
+
+    posLoc = gl.getAttribLocation(program, "vPosition");
+    colLoc = gl.getAttribLocation(program, "vColor");
+
+    // define ground
+    defineGroundInitial();
+
+    // initial listeners
+    canvas.addEventListener("mousedown",
+        (event) => { handleClick(event) });
+    canvas.addEventListener("mousemove",
+        (event) => { handleMouseMove(event) });
+    canvas.addEventListener("mouseup",
+        (event) => { handleRelease(event) });
+
+
     render();
 };
 
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
+    drawGround();
+
     requestAnimationFrame(render);
 }
+
+// =====================================
+// WebGL Interfacing
+
+// Pushes a uniform to the shader
+// can provide a uniform memory location,
+// otherwise initializes its own one-time-use location using location as the name
+function pushUniform(type, value, location) {
+    if (typeof location === 'string') location = gl.getUniformLocation(program, location);
+    switch (type) {
+        case "bool":
+        case "int":
+            gl.uniform1i(location, value);
+            break;
+        case "vec1":
+        case "float":
+            gl.uniform1fv(location, [value]);
+            break;
+        case "vec4":
+            gl.uniform4fv(location, flatten(value));
+            break;
+        case "mat4":
+            gl.uniformMatrix4fv(location, false, flatten(value));
+            break;
+    }
+}
+
+// pushes an array provided data, size, and location
+function pushArrayData(array, size, location) {
+    // Position
+    // Create Buffer
+    let buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(array), gl.STATIC_DRAW);
+
+    // Push Buffer
+    if (typeof location === 'string') location = gl.getAttribLocation(program, location);
+    gl.vertexAttribPointer(location, size, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(location);
+}
+
+// ======================================================
