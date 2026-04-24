@@ -7,12 +7,12 @@ let gl;
 let program;
 let canvas;
 
-let groundPoints;
-let groundColors;
+let camMatrix;
+let projMatrix;
 
-let eye = vec3(0, 3, 5);
-let at = vec3(0, 0, 0);
-let up = vec3(0, 1, 0);
+let modelLoc;
+let posLoc;
+let colLoc;
 
 window.onload = function init() {
     canvas = document.getElementById("gl-canvas");
@@ -25,12 +25,27 @@ window.onload = function init() {
     program = initShaders(gl, "vertex-shader", "fragment-shader");
     gl.useProgram(program);
 
-    let cam = lookAt(eye, at, up);
-    let proj = perspective(120, 1, .1, 10);
-    pushUniform("mat4", mult(proj, cam), "viewMatrix");
-    pushUniform("mat4", mat4(), "modelMatrix");
+    camMatrix = lookAt(eye, at, up);
+    projMatrix = perspective(120, 1, .1, 15);
+    pushUniform("mat4", mult(projMatrix, camMatrix), "viewMatrix");
 
-    defineGround();
+    modelLoc = gl.getUniformLocation(program, "modelMatrix");
+    pushUniform("mat4", mat4(), modelLoc);
+
+    posLoc = gl.getAttribLocation(program, "vPosition");
+    colLoc = gl.getAttribLocation(program, "vColor");
+
+    // define ground
+    defineGroundInitial();
+
+    // initial listeners
+    canvas.addEventListener("mousedown",
+        (event) => { handleClick(event) });
+    canvas.addEventListener("mousemove",
+        (event) => { handleMouseMove(event) });
+    canvas.addEventListener("mouseup",
+        (event) => { handleRelease(event) });
+
 
     render();
 };
@@ -38,24 +53,9 @@ window.onload = function init() {
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    pushArrayData(groundPoints, 4, "vPosition");
-    pushArrayData(groundColors, 4,"vColor");
-    gl.drawArrays(gl.TRIANGLE_FAN, 0, groundPoints.length);
+    drawGround();
 
     requestAnimationFrame(render);
-}
-
-function defineGround() {
-    groundPoints = [
-        vec4(-5, 0, 5, 1),
-        vec4(5, 0, 5, 1),
-        vec4(5, 0, -5, 1),
-        vec4(-5, 0, -5, 1)
-    ]
-    groundColors = [];
-    for (let i = 0; i < groundPoints.length; i++) {
-        groundColors.push(vec4(.6, .6, .6, 1.0));
-    }
 }
 
 // =====================================
