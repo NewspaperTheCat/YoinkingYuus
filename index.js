@@ -14,6 +14,9 @@ let modelLoc;
 let posLoc;
 let colLoc;
 
+// TODO Refactor with proper yuus
+let yuus;
+
 window.onload = function init() {
     canvas = document.getElementById("gl-canvas");
     gl = WebGLUtils.setupWebGL(canvas, null);
@@ -38,6 +41,11 @@ window.onload = function init() {
     // define ground
     defineGroundInitial();
 
+    // place initial yuus
+    yuus = [
+        vec4(0, 0, 0, 1)
+    ];
+
     // initial listeners
     canvas.addEventListener("mousedown",
         (event) => { handleClick(event) });
@@ -54,6 +62,7 @@ function render() {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     drawGround();
+    drawYuus();
 
     requestAnimationFrame(render);
 }
@@ -99,3 +108,28 @@ function pushArrayData(array, size, location) {
 }
 
 // ======================================================
+
+
+// Temporary Yuu Drawing
+function drawYuus() {
+    for (let i = 0; i < yuus.length; i++) {
+        drawTriangle(yuus[i]);
+    }
+}
+
+function drawTriangle(pos) {
+    let model = translate(pos[0], pos[1], pos[2]);
+    let points = [
+        vec4(-.75, 0, 0, 1.0),
+        vec4(.75, 0, 0, 1.0),
+        vec4(0, 1.5, 0, 1.0)
+    ]
+    let colors = [
+        vec4(1,1,1,1), vec4(1,1,1,1), vec4(1,1,1,1)
+    ]
+
+    pushArrayData(points, 4, posLoc);
+    pushArrayData(colors, 4, colLoc);
+    pushUniform("mat4", model, modelLoc);
+    gl.drawArrays(gl.TRIANGLES, 0, points.length);
+}

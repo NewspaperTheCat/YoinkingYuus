@@ -10,6 +10,7 @@ let selectedType = ""; // string containing the type of selected, "" for none
 let selected; // Nebulous depending on type context
 
 const DETECTION_PLANE_HEIGHT = 1.0;
+const HOLD_DISTANCE = 2;
 
 // takes a mouse event
 // returns a point at y=0 underneath the intersect at DETECTION_PLANE_HEIGHT
@@ -50,6 +51,7 @@ function getWorldClick(e) {
 }
 
 function handleClick(e) {
+    if (selectedType !== "") return; // still holding something that wasn't properly released
     let where = getWorldClick(e);
 
     let closestDis = 1; // max range
@@ -57,13 +59,24 @@ function handleClick(e) {
     let closest = -1; // nebulous thing depending on context
 
     if (where != null) {
+        // check ground pins
         for (let i = 0; i < groundPoints.length; i++) {
             let p = groundPoints[i];
-
             let dis = length(subtract(p, where));
             if (dis < closestDis) {
                 closestDis = dis;
                 closestType = "pin";
+                closest = i;
+            }
+        }
+
+        // check Yuus
+        for (let i = 0; i < yuus.length; i++) {
+            let p = yuus[i];
+            let dis = length(subtract(p, where));
+            if (dis < closestDis) {
+                closestDis = dis;
+                closestType = "yuu";
                 closest = i;
             }
         }
@@ -83,12 +96,26 @@ function handleMouseMove(e) {
             groundPoints[selected] = where;
             break;
         case "yuu":
+            let where3 = vec3(where[0], where[1], where[2])
+            let n = subtract(where3, eye);
+            let dir = normalize(n);
+            let pos = add(scale(HOLD_DISTANCE, dir), eye);
+            yuus[selected] = vec4(pos[0], pos[1] - DETECTION_PLANE_HEIGHT, pos[2], 1.0);
             break;
         // ignore if we found nothing
     }
 }
 
 function handleRelease(e) {
+    // check for release behavior
+    let where = getWorldClick(e);
+    switch (selectedType) {
+        case "yuu":
+            if (where == null) return; // don't release yuu into the void
+            yuus[selected] = where;
+            break;
+    }
+
     selectedType = "";
     selected = -1;
 }
