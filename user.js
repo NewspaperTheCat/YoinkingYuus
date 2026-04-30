@@ -11,6 +11,7 @@ let selected; // Nebulous depending on type context
 
 const DETECTION_PLANE_HEIGHT = 1.0;
 const HOLD_DISTANCE = 2;
+const GRAB_DISTANCE = 1;
 
 // takes a mouse event
 // returns a point at y=0 underneath the intersect at DETECTION_PLANE_HEIGHT
@@ -54,7 +55,7 @@ function handleClick(e) {
     if (selectedType !== "") return; // still holding something that wasn't properly released
     let where = getWorldClick(e);
 
-    let closestDis = 1; // max range
+    let closestDis = GRAB_DISTANCE; // max range
     let closestType = ""
     let closest = -1; // nebulous thing depending on context
 
@@ -85,6 +86,18 @@ function handleClick(e) {
     // map to global for on-move use
     selectedType = closestType;
     selected = closest;
+
+    // set yuu_state if applicable
+    switch (selectedType) {
+        case "yuu":
+            yuu_states[selected] = 1
+            break;
+    }
+
+    // Update cursor
+    if (selectedType !== "") {
+        setCursor("grabbing");
+    }
 }
 
 function handleMouseMove(e) {
@@ -104,6 +117,30 @@ function handleMouseMove(e) {
             break;
         // ignore if we found nothing
     }
+
+    // on hover cursor change logic
+    if (selectedType === "") {
+        // check ground pins
+        for (let i = 0; i < groundPoints.length; i++) {
+            let p = groundPoints[i];
+            let dis = length(subtract(p, where));
+            if (dis < GRAB_DISTANCE) {
+                setCursor("grab");
+                return;
+            }
+        }
+
+        // check Yuus
+        for (let i = 0; i < yuus.length; i++) {
+            let p = yuus[i];
+            let dis = length(subtract(p, where));
+            if (dis < GRAB_DISTANCE) {
+                setCursor("grab");
+                return;
+            }
+        }
+        setCursor("pointer");
+    }
 }
 
 function handleRelease(e) {
@@ -112,10 +149,24 @@ function handleRelease(e) {
     switch (selectedType) {
         case "yuu":
             if (where == null) return; // don't release yuu into the void
-            yuus[selected] = where;
+
+            // Where is the target landing location
+            let t = Math.sqrt((eye[1] - where[1]) / GRAVITY / GRAVITY)
+            let v_x = (where[0] - eye[0]) / t
+            let v_z = (where[2] - eye[2]) / t
+
+            yuu_vels[selected] = vec4(v_x, 0, v_z, 0);
+            yuu_states[selected] = 2; // into freefall
+            console.log(where)
             break;
     }
 
     selectedType = "";
     selected = -1;
+    setCursor("pointer");
+}
+
+// sets cursor type to specified
+function setCursor(cursor) {
+    canvas.style.cursor = cursor;
 }
