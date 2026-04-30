@@ -115,7 +115,7 @@ function handleRelease(e) {
             yuus[selected] = where;
             break;
     }
-
+    regenerateSpline();
     selectedType = "";
     selected = -1;
 }
