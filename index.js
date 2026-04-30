@@ -17,6 +17,9 @@ let colLoc;
 // TODO Refactor with proper yuus
 let yuus;
 
+let yuuPos = 0;
+let yuuSpeed = 0.002;
+
 window.onload = function init() {
     canvas = document.getElementById("gl-canvas");
     gl = WebGLUtils.setupWebGL(canvas, null);
@@ -40,6 +43,7 @@ window.onload = function init() {
 
     // define ground
     defineGroundInitial();
+    regenerateSpline();
 
     // place initial yuus
     yuus = [
@@ -61,8 +65,11 @@ window.onload = function init() {
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
+    updateYuuPosition();
+
     drawGround();
     drawYuus();
+    drawSpline();
 
     requestAnimationFrame(render);
 }
@@ -132,4 +139,18 @@ function drawTriangle(pos) {
     pushArrayData(colors, 4, colLoc);
     pushUniform("mat4", model, modelLoc);
     gl.drawArrays(gl.TRIANGLES, 0, points.length);
+}
+
+function updateYuuPosition() {
+    if (splineSamples.length === 0) return;
+
+    yuuPos += yuuSpeed;
+
+    //wrap around
+    if (yuuPos >= 1) yuuPos -= 1;
+
+    let idx = Math.floor(yuuPos * splineSamples.length);
+    idx = Math.min(idx, splineSamples.length - 1);
+
+    yuus[0] = splineSamples[idx];
 }
