@@ -18,6 +18,9 @@ let colLoc;
 let yuus;
 let cube;
 let sceneNode;
+let yuu_vels;
+let yuu_states; // 0 = wander, 1 = grabbed, 2 = freefall
+const GRAVITY = 1
 
 window.onload = function init() {
     canvas = document.getElementById("gl-canvas");
@@ -44,9 +47,15 @@ window.onload = function init() {
     defineGroundInitial();
 
     // place initial yuus
-    yuus = [
-        vec4(0, 0, 0, 1)
-    ];
+    let num_yuus = 3;
+    yuus = [];
+    yuu_vels = [];
+    yuu_states = [];
+    for (let i = 0; i < num_yuus; ++i) {
+        yuus.push(vec4(i, 0, 0, 1));
+        yuu_vels.push(vec4(0, 0, 0, 0));
+        yuu_states.push(0);
+    }
 
     // initial listeners
     canvas.addEventListener("mousedown",
@@ -62,6 +71,9 @@ window.onload = function init() {
 
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT);
+
+    // update yuus
+    updateYuus();
 
     drawGround();
     drawYuus();
@@ -424,4 +436,20 @@ function quatToMat(q) {
     rot[2][1] = 2 * (s * x + y * z);
     rot[2][2] = 1.0 - 2 * (x * x + y * y);
     return rot;
+}
+function updateYuus() {
+    let delta = .04
+    for (let i = 0; i < yuus.length; i++) {
+        if (yuu_states[i] !== 2) continue;
+
+
+        yuu_vels[i][1] -= GRAVITY * delta;
+        yuus[i] = add(yuus[i], scale(delta, yuu_vels[i]));
+
+        // see if we reached the ground
+        if (yuus[i][1] <= 0) {
+            yuus[i][1] = 0;
+            yuu_states[i] = 0;
+        }
+    }
 }
