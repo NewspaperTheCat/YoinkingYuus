@@ -158,7 +158,6 @@ function updateYuus() {
         // see if we reached the ground
         if (yuus[i][1] <= 0) {
             yuus[i][1] = 0;
-            console.log(yuus[i])
             yuu_states[i] = 0;
         }
     }

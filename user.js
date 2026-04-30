@@ -93,16 +93,15 @@ function handleClick(e) {
             yuu_states[selected] = 1
             break;
     }
-
-    // Update cursor
-    if (selectedType !== "") {
-        setCursor("grabbing");
-    }
 }
 
 function handleMouseMove(e) {
     let where = getWorldClick(e)
-    if (where == null) return;
+    if (where == null) {
+        setCursor("not-allowed");
+        return;
+    }
+
     // apply action to closest, whatever it may be
     switch (selectedType) {
         case "pin":
@@ -140,6 +139,8 @@ function handleMouseMove(e) {
             }
         }
         setCursor("pointer");
+    } else {
+        setCursor("grabbing");
     }
 }
 
@@ -157,7 +158,6 @@ function handleRelease(e) {
 
             yuu_vels[selected] = vec4(v_x, 0, v_z, 0);
             yuu_states[selected] = 2; // into freefall
-            console.log(where)
             break;
     }
 
