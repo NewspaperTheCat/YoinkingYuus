@@ -3,17 +3,16 @@
 // referenced by spline generation to get bounds
 // ========================================================
 
-let groundPoints;
-let groundColors;
+let groundNode
 
 function defineGroundInitial() {
-    groundPoints = [
+    let groundPoints = [
         vec4(-5, 0, 5, 1),
         vec4(5, 0, 5, 1),
         vec4(5, 0, -5, 1),
         vec4(-5, 0, -5, 1)
     ]
-    groundColors = oneColorArray(groundPoints, vec4(.6, .6, .6, 1.0));
+    let groundColors = oneColorArray(groundPoints, vec4(.6, .6, .6, 1.0));
     groundNode = new SceneNode(groundPoints, groundColors, gl.TRIANGLE_FAN, vec3(0, 0, 0), vec4(0, 0, 0, 1));
     for (let i = 0; i < groundPoints.length; i++) {
         let pin = createPin(groundPoints[i]);
@@ -59,4 +58,9 @@ function createPin(point) {
     let colors = oneColorArray(points, vec4(.8, .8, .8, 1.0));
 
     return new SceneNode(points, colors, gl.TRIANGLE_FAN, point, vec4(0, 0, 0, 1));
+}
+
+function updateGroundPoint(index, point) {
+    groundNode.points[index] = point;
+    groundNode.children[index].pos = point;
 }

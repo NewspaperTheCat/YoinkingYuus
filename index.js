@@ -55,9 +55,10 @@ window.onload = function init() {
 
     yuuModel = Yuu();
 
+    // place initial yuus and ground
     initScene();
 
-    // initial listeners
+    // add listeners
     canvas.addEventListener("mousedown",
         (event) => { handleClick(event) });
     canvas.addEventListener("mousemove",
@@ -77,7 +78,7 @@ function render() {
 
     drawNode(sceneNode);
 
-    // requestAnimationFrame(render);
+    requestAnimationFrame(render);
 }
 
 // =====================================
@@ -339,11 +340,11 @@ function initScene() {
 
     sceneNode = SceneNode([], [], gl.LINES, scale(-1, eye), eye_orientation, 1, eye);
 
-    // place initial yuus
-    for (var i = 0; i < num_yuus; i++) {
-        yuu = YuuNode(vec4(i, 3, -3, 1), vec4(0, 0, 10, 0), "state", "spline", vec4(0, 0, 0, 1));
-        sceneNode.children.push(yuu);
-    }
+    //define Yuus
+    // for (var i = 0; i < num_yuus; i++) {
+    yuu = YuuNode(vec3(0, 1.5, 0), vec3(0, 0, 10), "wander", "spline", vec4(0, 0, 0, 1));
+    // }
+    sceneNode.children.push(yuu);
 
     // define ground
     defineGroundInitial();
@@ -462,18 +463,17 @@ function quatToMat(q) {
 }
 function updateYuus() {
     let delta = .04
-    for (yuu of yuus) {
+    for (let i = 0; i < yuus.length; i++) {
+        let y = yuus[i]
+        if (y.state !== "freefall") continue;
 
-        if (yuu.state !== 2) continue;
-
-
-        yuu.vel[1] -= GRAVITY * delta;
-        yuu.pos = add(yuu.pos, scale(delta, yuu.vel));
+        y.vel = subtract(y.vel, vec4(0, GRAVITY * delta, 0, 0));
+        y.pos = add(y.pos, scale(delta, y.vel));
 
         // see if we reached the ground
-        if (yuu.pos[1] <= 0) {
-            yuu.pos[1] = 0;
-            yuu.state = 0;
+        if (y.pos[1] <= 1.5) {
+            y.pos[1] = 1.5;
+            y.state = "wander";
         }
     }
 }
