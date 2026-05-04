@@ -87,10 +87,20 @@ function getGroundBounds() {
 }
 
 function getRandomGroundPoint() {
+    let quad = groundPoints;
+
+    // bounding box for speed
     let b = getGroundBounds();
-    let x = b.minX + Math.random() * (b.maxX - b.minX);
-    let z = b.minZ + Math.random() * (b.maxZ - b.minZ);
-    return vec4(x, 0, z, 1);
+
+    while (true) {
+        let x = b.minX + Math.random() * (b.maxX - b.minX);
+        let z = b.minZ + Math.random() * (b.maxZ - b.minZ);
+        let pt = vec4(x, 0, z, 1);
+
+        if (pointInQuad(pt, quad)) {
+            return pt;
+        }
+    }
 }
 
 function getRandomGroundPoints(n = 5) {
@@ -154,4 +164,25 @@ function drawSpline() {
 function regenerateSpline() {
     splinePoints = getRandomGroundPoints(5);
     rebuildSpline();
+}
+
+function pointInQuad(pt, quad) {
+    // quad = [p0, p1, p2, p3] in order
+    function edgeSign(a, b, p) {
+        // 2D cross product sign
+        return (b[0] - a[0]) * (p[2] - a[2]) - (b[2] - a[2]) * (p[0] - a[0]);
+    }
+
+    let p0 = quad[0], p1 = quad[1], p2 = quad[2], p3 = quad[3];
+
+    let s1 = edgeSign(p0, p1, pt);
+    let s2 = edgeSign(p1, p2, pt);
+    let s3 = edgeSign(p2, p3, pt);
+    let s4 = edgeSign(p3, p0, pt);
+
+    // All signs must be >= 0 or all <= 0
+    let hasPos = (s1 >= 0) && (s2 >= 0) && (s3 >= 0) && (s4 >= 0);
+    let hasNeg = (s1 <= 0) && (s2 <= 0) && (s3 <= 0) && (s4 <= 0);
+
+    return hasPos || hasNeg;
 }
