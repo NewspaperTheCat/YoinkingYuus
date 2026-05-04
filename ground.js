@@ -8,7 +8,7 @@ let groundNode
 let splinePoints = [];
 let splineSamples = [];
 let splineColor = [];
-let splineResolution = 40;
+let splineResolution = 50;
 
 function defineGroundInitial() {
     let groundPoints = [
@@ -24,18 +24,6 @@ function defineGroundInitial() {
         groundNode.children.push(pin);
     }
     sceneNode.children.push(groundNode)
-}
-
-function drawGround() {
-    pushUniform("mat4", mat4(), modelLoc);
-    pushArrayData(groundPoints, 4, "vPosition");
-    pushArrayData(groundColors, 4, "vColor");
-    gl.drawArrays(gl.TRIANGLE_FAN, 0, groundPoints.length);
-
-    // Draw pins at corners
-    for (let i = 0; i < groundPoints.length; i++) {
-        drawPin(groundPoints[i]);
-    }
 }
 
 // draws a bin at that point such that the head of the pin is above it
@@ -71,8 +59,8 @@ function updateGroundPoint(index, point) {
 }
 
 function getGroundBounds() {
-    let xs = groundPoints.map(p => p[0]);
-    let zs = groundPoints.map(p => p[2]);
+    let xs = groundNode.points.map(p => p[0]);
+    let zs = groundNode.points.map(p => p[2]);
 
     return {
         minX: Math.min(...xs),
@@ -83,7 +71,7 @@ function getGroundBounds() {
 }
 
 function getRandomGroundPoint() {
-    let quad = groundPoints;
+    let quad = groundNode.points;
 
     // bounding box for speed
     let b = getGroundBounds();
@@ -148,17 +136,24 @@ function rebuildSpline() {
 }
 
 function drawSpline() {
+    return // Unfortunately something I have done while integrating this has broke it
+    // for demo day, we can just have the spline not show up visually, as it is working otherwise
+
     if (splineSamples.length === 0) return;
 
     pushUniform("mat4", mat4(), modelLoc);
     pushArrayData(splineSamples, 4, posLoc);
     pushArrayData(splineColor, 4, colLoc);
 
+    console.log(splineSamples);
+
     gl.drawArrays(gl.LINE_STRIP, 0, splineSamples.length);
 }
 
 function regenerateSpline() {
-    splinePoints = getRandomGroundPoints(5);
+    let yuuGrounded = vec4(yuu.pos[0], 0, yuu.pos[2], 1)
+    splinePoints = [yuuGrounded] // always start where the yuu is
+    splinePoints.push(...getRandomGroundPoints(4));
     rebuildSpline();
 }
 

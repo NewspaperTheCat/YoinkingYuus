@@ -30,7 +30,6 @@ let sceneNode;
 const GRAVITY = 1
 
 // TEMP, TO REMOVE
-let sceneNode;
 let yuu;
 let yuuPos = 0;
 let yuuSpeed = 0.002;
@@ -77,19 +76,17 @@ window.onload = function init() {
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    updateYuuPosition();
-
     // update yuus
     updateYuus();
 
-    drawNode(sceneNode);
     drawSpline();
+    drawNode(sceneNode);
 
     requestAnimationFrame(render);
 }
 
 
-function updateYuuPosition() {
+function updateYuuPosition(y) {
     if (!splineSamples || splineSamples.length < 2) return;
 
     yuuPos += yuuSpeed * yuuDir;
@@ -125,6 +122,32 @@ function updateYuuPosition() {
 
     yuu.rot = directionToQuat(dir);
 }
+
+function updateYuus() {
+    let delta = .04
+    for (let i = 0; i < yuus.length; i++) {
+        let y = yuus[i]
+        switch (y.state) {
+            case "freefall":
+                if (y.state !== "freefall") continue;
+
+                y.vel = subtract(y.vel, vec4(0, GRAVITY * delta, 0, 0));
+                y.pos = add(y.pos, scale(delta, y.vel));
+
+                // see if we reached the ground
+                if (y.pos[1] <= 1.5) {
+                    y.pos[1] = 1.5;
+                    y.state = "wander";
+                    regenerateSpline();
+                }
+
+                break;
+            case "wander":
+                updateYuuPosition(y);
+        }
+    }
+}
+
 
 
 function directionToQuat(dir) {
@@ -518,20 +541,4 @@ function quatToMat(q) {
     rot[2][1] = 2 * (s * x + y * z);
     rot[2][2] = 1.0 - 2 * (x * x + y * y);
     return rot;
-}
-function updateYuus() {
-    let delta = .04
-    for (let i = 0; i < yuus.length; i++) {
-        let y = yuus[i]
-        if (y.state !== "freefall") continue;
-
-        y.vel = subtract(y.vel, vec4(0, GRAVITY * delta, 0, 0));
-        y.pos = add(y.pos, scale(delta, y.vel));
-
-        // see if we reached the ground
-        if (y.pos[1] <= 1.5) {
-            y.pos[1] = 1.5;
-            y.state = "wander";
-        }
-    }
 }

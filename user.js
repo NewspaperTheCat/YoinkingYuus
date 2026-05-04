@@ -163,7 +163,7 @@ function handleRelease(e) {
             yuus[selected].state = "freefall"; // into freefall
             break;
     }
-    regenerateSpline();
+    // spline regenerated upon landing on ground (found in updateYuus())
     selectedType = "";
     selected = -1;
     setCursor("pointer");
