@@ -72,8 +72,8 @@ function handleClick(e) {
 
         // check Yuus
         for (let i = 0; i < yuus.length; i++) {
-            let p = yuus[i];
-            let dis = length(subtract(p, where));
+            let p = yuus[i].pos; // SceneNode position
+            let dis = length(subtract(vec4(p[0], p[1], p[2], 1), where));
             if (dis < closestDis) {
                 closestDis = dis;
                 closestType = "yuu";
@@ -100,7 +100,7 @@ function handleMouseMove(e) {
             let n = subtract(where3, eye);
             let dir = normalize(n);
             let pos = add(scale(HOLD_DISTANCE, dir), eye);
-            yuus[selected] = vec4(pos[0], pos[1] - DETECTION_PLANE_HEIGHT, pos[2], 1.0);
+            yuus[selected].pos = vec3(pos[0], pos[1] - DETECTION_PLANE_HEIGHT, pos[2]);
             break;
         // ignore if we found nothing
     }
@@ -112,7 +112,7 @@ function handleRelease(e) {
     switch (selectedType) {
         case "yuu":
             if (where == null) return; // don't release yuu into the void
-            yuus[selected] = where;
+            yuus[selected].pos = vec3(where[0], where[1], where[2]);
             break;
     }
     regenerateSpline();
