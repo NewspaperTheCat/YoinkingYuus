@@ -75,7 +75,7 @@ function handleClick(e) {
 
         // check Yuus
         for (let i = 0; i < yuus.length; i++) {
-            let p = yuus[i];
+            let p = yuus[i].pos;
             let dis = length(subtract(p, where));
             if (dis < closestDis) {
                 closestDis = dis;
@@ -92,7 +92,7 @@ function handleClick(e) {
     // set yuu_state if applicable
     switch (selectedType) {
         case "yuu":
-            yuu_states[selected] = 1
+            yuus[selected].state = 1
             break;
     }
 }
@@ -114,7 +114,7 @@ function handleMouseMove(e) {
             let n = subtract(where3, eye);
             let dir = normalize(n);
             let pos = add(scale(HOLD_DISTANCE, dir), eye);
-            yuus[selected] = vec4(pos[0], pos[1] - DETECTION_PLANE_HEIGHT, pos[2], 1.0);
+            yuus[selected].pos = vec4(pos[0], pos[1] - DETECTION_PLANE_HEIGHT, pos[2], 1.0);
             break;
         // ignore if we found nothing
     }
@@ -133,7 +133,7 @@ function handleMouseMove(e) {
 
         // check Yuus
         for (let i = 0; i < yuus.length; i++) {
-            let p = yuus[i];
+            let p = yuus[i].pos;
             let dis = length(subtract(p, where));
             if (dis < GRAB_DISTANCE) {
                 setCursor("grab");
@@ -158,8 +158,8 @@ function handleRelease(e) {
             let v_x = (where[0] - eye[0]) / t
             let v_z = (where[2] - eye[2]) / t
 
-            yuu_vels[selected] = vec4(v_x, 0, v_z, 0);
-            yuu_states[selected] = 2; // into freefall
+            yuu[selected].vel = vec4(v_x, 0, v_z, 0);
+            yuu[selected].state = 2; // into freefall
             break;
     }
 
