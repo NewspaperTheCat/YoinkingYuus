@@ -4,10 +4,6 @@
 // ========================================================
 
 let groundNode
-
-let splinePoints = [];
-let splineSamples = [];
-let splineColor = [];
 let splineResolution = 50;
 
 function defineGroundInitial() {
@@ -115,11 +111,10 @@ function catmullRom(p0, p1, p2, p3, t) {
     return vec4(x, y, z, 1);
 }
 
-function rebuildSpline() {
+function rebuildSpline(yuu, splinePoints) {
     if (splinePoints.length < 4) return;
 
-    splineSamples = [];
-    splineColor = [];
+    let splineSamples = [];
 
     for (let i = 0; i < splinePoints.length - 3; i++) {
         let p0 = splinePoints[i];
@@ -130,9 +125,10 @@ function rebuildSpline() {
         for (let t = 0; t <= 1; t += 1 / splineResolution) {
             let pt = catmullRom(p0, p1, p2, p3, t);
             splineSamples.push(pt);
-            splineColor.push(vec4(1, 0, 0, 1)); // red spline
         }
     }
+
+    yuu.spline = splineSamples;
 }
 
 function drawSpline() {
@@ -150,12 +146,12 @@ function drawSpline() {
     gl.drawArrays(gl.LINE_STRIP, 0, splineSamples.length);
 }
 
-function regenerateSpline() {
+function regenerateSpline(yuu) {
     let yuuGrounded = vec4(yuu.pos[0], 0, yuu.pos[2], 1);
-    splinePoints = [yuuGrounded, yuuGrounded]; // always start where the yuu is
-    yuuPos = 0;
+    let splinePoints = [yuuGrounded, yuuGrounded]; // always start where the yuu is
+    yuu.splineProgress = 0;
     splinePoints.push(...getRandomGroundPoints(4));
-    rebuildSpline();
+    rebuildSpline(yuu, splinePoints);
 }
 
 function pointInQuad(pt, quad) {

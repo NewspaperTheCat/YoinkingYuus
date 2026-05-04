@@ -151,6 +151,11 @@ function handleRelease(e) {
     // check for release behavior
     let where = getWorldClick(e);
     switch (selectedType) {
+        case "pin":
+            for (let i = 0; i < yuus.length; i++) {
+                regenerateSpline(yuus[i]);
+            }
+            break;
         case "yuu":
             if (where == null) return; // don't release yuu into the void
 

@@ -23,17 +23,15 @@ let modelLoc;
 let posLoc;
 let colLoc;
 
+const NUM_YUUS = 20;
 let yuuModel;
 let yuus = [];
 
 let sceneNode;
 const GRAVITY = 1
 
-// TEMP, TO REMOVE
-let yuu;
-let yuuPos = 0;
-let yuuSpeed = 0.002;
-let yuuDir = 1; //+1 = forward, -1 = backward
+const DELTA = .04
+const SPLINE_DELTA = .004
 
 window.onload = function init() {
     canvas = document.getElementById("gl-canvas");
@@ -62,7 +60,9 @@ window.onload = function init() {
     initScene();
 
     // TEMP
-    regenerateSpline();
+    for (let yi = 0; yi < yuus.length; yi++) {
+        regenerateSpline(yuus[yi]);
+    }
 
     // Add listeners
     canvas.addEventListener("mousedown", (event) => handleClick(event));
@@ -87,59 +87,52 @@ function render() {
 
 
 function updateYuuPosition(y) {
-    if (!splineSamples || splineSamples.length < 2) return;
+    if (!y.spline || y.spline.length < 2) return;
 
-    yuuPos += yuuSpeed * yuuDir;
+    y.splineProgress += SPLINE_DELTA;
 
     //switch direction at end
-    if (yuuPos >= 1) {
-        yuuPos = 1;
-        // yuuDir = 1;
-        regenerateSpline()
+    if (y.splineProgress >= 1) {
+        regenerateSpline(y)
     }
-    // if (yuuPos <= 0) {
-    //     yuuPos = 0;
-    //     yuuDir = 1;
-    // }
 
-    let idx = Math.floor(yuuPos * (splineSamples.length - 1));
-    idx = Math.max(0, Math.min(idx, splineSamples.length - 1));
+    let idx = Math.floor(y.splineProgress * (y.spline.length - 1));
+    idx = Math.max(0, Math.min(idx, y.spline.length - 1));
 
-    let p = splineSamples[idx];
+    let p = y.spline[idx];
 
-    yuu.pos = vec3(p[0], p[1] + 1, p[2]);
+    y.pos = vec3(p[0], p[1] + 1, p[2]);
 
     //determine next index based on direction
-    let nextIdx = idx + yuuDir;
+    let nextIdx = idx + 1;
 
     //fix NaN error
     if (nextIdx < 0) nextIdx = 1;
-    if (nextIdx >= splineSamples.length) nextIdx = splineSamples.length - 2;
+    if (nextIdx >= y.spline.length) nextIdx = y.spline.length - 2;
 
-    let nextP = splineSamples[nextIdx];
+    let nextP = y.spline[nextIdx];
 
     let dir = subtract(nextP, p);
     dir = normalize(vec3(dir[0], dir[1], dir[2]));
 
-    yuu.rot = directionToQuat(dir);
+    y.rot = directionToQuat(dir);
 }
 
 function updateYuus() {
-    let delta = .04
     for (let i = 0; i < yuus.length; i++) {
         let y = yuus[i]
         switch (y.state) {
             case "freefall":
                 if (y.state !== "freefall") continue;
 
-                y.vel = subtract(y.vel, vec4(0, GRAVITY * delta, 0, 0));
-                y.pos = add(y.pos, scale(delta, y.vel));
+                y.vel = subtract(y.vel, vec4(0, GRAVITY * DELTA, 0, 0));
+                y.pos = add(y.pos, scale(DELTA, y.vel));
 
                 // see if we reached the ground
                 if (y.pos[1] <= 1.5) {
                     y.pos[1] = 1.5;
                     y.state = "wander";
-                    regenerateSpline();
+                    regenerateSpline(y);
                 }
 
                 break;
@@ -263,13 +256,6 @@ function drawNode(node) {
 
 // ======================================================
 
-
-// Temporary Yuu Drawing
-function drawYuus() {
-    for (let i = 0; i < yuus.length; i++) {
-        drawTriangle(yuus[i]);
-    }
-}
 /**
  * Create a humanoid figure to do animations with
  * @returns An object containing all the parts of the humanoid
@@ -318,6 +304,7 @@ function YuuNode(pos, vel, state, spline, rotation) {
     yuu.vel = vel;
     yuu.state = state;
     yuu.spline = spline;
+    yuu.splineProgress = 0;
     yuus.push(yuu);
     return yuu;
 }
@@ -424,12 +411,22 @@ function initScene() {
 
     sceneNode = SceneNode([], [], gl.LINES, scale(-1, eye), eye_orientation, 1, eye);
 
-    //define Yuus
-    yuu = YuuNode(vec3(0, 1.5, 0), vec3(0, 0, 10), "wander", "spline", vec4(0, 0, 0, 1));
-    sceneNode.children.push(yuu);
-
     // define ground
     defineGroundInitial();
+
+    //define Yuus
+    for (let i = 0; i < NUM_YUUS; i++) {
+        let pos = getRandomGroundPoint()
+        pos = vec3(pos[0], 1.5, pos[2])
+        let yuu = YuuNode(pos, vec3(0, 0, 10), "wander", "spline", vec4(0, 0, 0, 1));
+
+        // make the scale varied
+        let min = .04
+        let range = .08
+        let scale = vec3(Math.random() * range + min, Math.random() * range + min, Math.random() * range + min);
+        yuu.scale = scale;
+        sceneNode.children.push(yuu);
+    }
 }
 
 /****************
