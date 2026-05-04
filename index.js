@@ -3,6 +3,15 @@
 // James Prendergast, Zack Robinson, Trey Bowen
 //=====================================================
 
+const RED = vec4(1, 0, 0, 1);
+const YELLOW = vec4(1, 1, 0, 1);
+const GREEN = vec4(0, 1, 0, 1);
+const CYAN = vec4(0, 1, 1, 1);
+const BLUE = vec4(0, 0, 1, 1);
+const PURPLE = vec4(1, 0, 1, 1);
+const WHITE = vec4(1, 1, 1, 1);
+const BLACK = vec4(0, 0, 0, 1);
+
 let gl;
 let program;
 let canvas;
@@ -14,9 +23,8 @@ let modelLoc;
 let posLoc;
 let colLoc;
 
-// TODO Refactor with proper yuus
-let yuus;
-let cube;
+let yuuModel;
+
 let sceneNode;
 let yuu_vels;
 let yuu_states; // 0 = wander, 1 = grabbed, 2 = freefall
@@ -30,12 +38,13 @@ window.onload = function init() {
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(0.8, 0.9, 1.0, 1.0);
 
+    gl.enable(gl.DEPTH_TEST);
+
     program = initShaders(gl, "vertex-shader", "fragment-shader");
     gl.useProgram(program);
 
-    camMatrix = lookAt(eye, at, up);
     projMatrix = perspective(120, 1, .1, 15);
-    pushUniform("mat4", mult(projMatrix, camMatrix), "viewMatrix");
+    pushUniform("mat4", projMatrix, "viewMatrix");
 
     modelLoc = gl.getUniformLocation(program, "modelMatrix");
     pushUniform("mat4", mat4(), modelLoc);
@@ -43,8 +52,7 @@ window.onload = function init() {
     posLoc = gl.getAttribLocation(program, "vPosition");
     colLoc = gl.getAttribLocation(program, "vColor");
 
-    // define ground
-    defineGroundInitial();
+    yuuModel = Yuu();
 
     // place initial yuus
     let num_yuus = 3;
@@ -56,6 +64,7 @@ window.onload = function init() {
         yuu_vels.push(vec4(0, 0, 0, 0));
         yuu_states.push(0);
     }
+    initScene();
 
     // initial listeners
     canvas.addEventListener("mousedown",
@@ -73,12 +82,11 @@ function render() {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     // update yuus
-    updateYuus();
+    // updateYuus();
 
-    drawGround();
-    drawYuus();
+    drawNode(sceneNode);
 
-    requestAnimationFrame(render);
+    // requestAnimationFrame(render);
 }
 
 // =====================================
@@ -163,10 +171,10 @@ function drawNode(node) {
 
     mvMatrix = mult(mvMatrix, modelMatrix);
 
-    pushUniform("mat4", mvMatrix, "vModel");
+    pushUniform("mat4", mvMatrix, modelLoc);
 
-    pushArrayData(node.points, "vPosition", 4);
-    pushArrayData(node.colors, "vColor", 4);
+    pushArrayData(node.points, 4, posLoc);
+    pushArrayData(node.colors, 4, colLoc);
 
     gl.drawArrays(node.glDrawType, 0, node.points.length);
 
@@ -215,6 +223,26 @@ function Yuu() {
     body.children.push(leg2);
 
     return { head: head, body: body, arms: [arm1, arm2], forearms: [forearm1, forearm2], legs: [leg1, leg2] };
+}
+
+/**
+ * Inherits SceneNode
+ * @param {Vec3} pos 
+ * @param {Vec3} vel 
+ * @param {*} state 
+ * @param {*} spline 
+ * @param {Vec4} rotation 
+ * @returns {Yuu}
+ */
+function YuuNode(pos, vel, state, spline, rotation) {
+    let yuu = new SceneNode([], [], gl.LINES, pos, rotation, 1 / 10);
+    yuu.model = yuuModel;
+    yuu.children.push(yuu.model.body);
+    yuu.vel = vel;
+    yuu.state = state;
+    yuu.spline = spline;
+    yuus.push(yuu);
+    return yuu;
 }
 
 function drawTriangle(pos) {
@@ -317,15 +345,14 @@ function oneColorArray(points, color) {
  */
 function initScene() {
 
-    sceneNode = SceneNode([], [], gl.LINES, scale(-1, eye), vec4(0.3826834, 0, 0, 0.9238795), 1, eye);
+    sceneNode = SceneNode([], [], gl.LINES, scale(-1, eye), eye_orientation, 1, eye);
 
-    humanoid = Humanoid();
-    sceneNode.children.push(humanoid.body);
+    //define Yuus
+    yuu = YuuNode(vec3(0, 3, -3), vec3(0, 0, 10), "state", "spline", vec4(0, 0, 0, 1));
+    sceneNode.children.push(yuu);
 
-    floor = SceneNode(cube, oneColorArray(cube, vec4(0.5, 0.5, 0.5, 1)),
-        gl.TRIANGLES, vec3(0, -10, 0), vec4(0, 0, 0, 1), vec3(100, 0, 100), vec3(0, 0, 0));
-
-    sceneNode.children.push(floor);
+    // define ground
+    defineGroundInitial();
 }
 
 /****************
@@ -356,14 +383,16 @@ function slerp(q1, q2, t) {
  * @returns {Mat4} The resulting matrix
  */
 function transform(pos, rot, s, pivot) {
-    if (pivot == null) {
-        pivot = vec3(0, 0, 0)
-    }
+    if (pivot == null)
+        pivot = vec3(0, 0, 0);
+    if (s == null)
+        s = 1;
     let scal = s;
     if (!Array.isArray(s))
         scal = vec3(s, s, s);
     let trt = mult(mult(translate(...pivot), quatToMat(rot)), translate(...scale(-1, pivot)));
-    return mult(mult(translate(...pos), trt), scalem(scal[0], scal[1], scal[2]));
+    let ans = mult(mult(translate(...pos), trt), scalem(scal[0], scal[1], scal[2]));
+    return ans;
 }
 
 /************************

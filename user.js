@@ -3,6 +3,8 @@
 // ===============================================
 
 let eye = vec3(0, 6, 3);
+let theta = Math.atan2(eye[1], eye[2]);
+let eye_orientation = vec4(Math.sin(theta / 2), 0, 0, Math.cos(theta / 2));
 let at = vec3(0, 0, 0);
 let up = vec3(0, 1, 0);
 
@@ -31,7 +33,7 @@ function getWorldClick(e) {
     eyeRay[3] = 0.0;
 
     // get a ray into the world
-    let imv = inverse4(camMatrix);
+    let imv = inverse4(transform(scale(-1, eye), eye_orientation, 1, eye));
     let worldRay = mult(imv, eyeRay);
     let worldDir = normalize(vec3(worldRay[0], worldRay[1], worldRay[2]));
     // console.log("world dir: " + worldDir);
