@@ -56,6 +56,7 @@ function getWorldClick(e) {
 function handleClick(e) {
     if (selectedType !== "") return; // still holding something that wasn't properly released
     let where = getWorldClick(e);
+    let where3 = vec3(where[0], where[1], where[2]);
 
     let closestDis = GRAB_DISTANCE; // max range
     let closestType = ""
@@ -63,8 +64,8 @@ function handleClick(e) {
 
     if (where != null) {
         // check ground pins
-        for (let i = 0; i < groundPoints.length; i++) {
-            let p = groundPoints[i];
+        for (let i = 0; i < groundNode.points.length; i++) {
+            let p = groundNode.points[i]
             let dis = length(subtract(p, where));
             if (dis < closestDis) {
                 closestDis = dis;
@@ -75,8 +76,8 @@ function handleClick(e) {
 
         // check Yuus
         for (let i = 0; i < yuus.length; i++) {
-            let p = yuus[i];
-            let dis = length(subtract(p, where));
+            let p = vec3(yuus[i].pos[0], 0, yuus[i].pos[2]);
+            let dis = length(subtract(p, where3));
             if (dis < closestDis) {
                 closestDis = dis;
                 closestType = "yuu";
@@ -92,7 +93,7 @@ function handleClick(e) {
     // set yuu_state if applicable
     switch (selectedType) {
         case "yuu":
-            yuu_states[selected] = 1
+            yuus[selected].state = "grabbed"
             break;
     }
 }
@@ -103,18 +104,18 @@ function handleMouseMove(e) {
         setCursor("not-allowed");
         return;
     }
+    let where3 = vec3(where[0], where[1], where[2]);
 
     // apply action to closest, whatever it may be
     switch (selectedType) {
         case "pin":
-            groundPoints[selected] = where;
+            updateGroundPoint(selected, where);
             break;
         case "yuu":
-            let where3 = vec3(where[0], where[1], where[2])
             let n = subtract(where3, eye);
             let dir = normalize(n);
             let pos = add(scale(HOLD_DISTANCE, dir), eye);
-            yuus[selected] = vec4(pos[0], pos[1] - DETECTION_PLANE_HEIGHT, pos[2], 1.0);
+            yuus[selected].pos = vec4(pos[0], pos[1], pos[2], 1.0);
             break;
         // ignore if we found nothing
     }
@@ -122,8 +123,8 @@ function handleMouseMove(e) {
     // on hover cursor change logic
     if (selectedType === "") {
         // check ground pins
-        for (let i = 0; i < groundPoints.length; i++) {
-            let p = groundPoints[i];
+        for (let i = 0; i < groundNode.points.length; i++) {
+            let p = groundNode.points[i];
             let dis = length(subtract(p, where));
             if (dis < GRAB_DISTANCE) {
                 setCursor("grab");
@@ -133,8 +134,8 @@ function handleMouseMove(e) {
 
         // check Yuus
         for (let i = 0; i < yuus.length; i++) {
-            let p = yuus[i];
-            let dis = length(subtract(p, where));
+            let p = vec3(yuus[i].pos[0], 0, yuus[i].pos[2]);
+            let dis = length(subtract(p, where3));
             if (dis < GRAB_DISTANCE) {
                 setCursor("grab");
                 return;
@@ -158,8 +159,8 @@ function handleRelease(e) {
             let v_x = (where[0] - eye[0]) / t
             let v_z = (where[2] - eye[2]) / t
 
-            yuu_vels[selected] = vec4(v_x, 0, v_z, 0);
-            yuu_states[selected] = 2; // into freefall
+            yuus[selected].vel = vec4(v_x, 0, v_z, 0);
+            yuus[selected].state = "freefall"; // into freefall
             break;
     }
 

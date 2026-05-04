@@ -24,10 +24,9 @@ let posLoc;
 let colLoc;
 
 let yuuModel;
+let yuus = [];
 
 let sceneNode;
-let yuu_vels;
-let yuu_states; // 0 = wander, 1 = grabbed, 2 = freefall
 const GRAVITY = 1
 
 window.onload = function init() {
@@ -54,19 +53,10 @@ window.onload = function init() {
 
     yuuModel = Yuu();
 
-    // place initial yuus
-    let num_yuus = 3;
-    yuus = [];
-    yuu_vels = [];
-    yuu_states = [];
-    for (let i = 0; i < num_yuus; ++i) {
-        yuus.push(vec4(i, 0, 0, 1));
-        yuu_vels.push(vec4(0, 0, 0, 0));
-        yuu_states.push(0);
-    }
+    // place initial yuus and ground
     initScene();
 
-    // initial listeners
+    // add listeners
     canvas.addEventListener("mousedown",
         (event) => { handleClick(event) });
     canvas.addEventListener("mousemove",
@@ -82,11 +72,11 @@ function render() {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     // update yuus
-    // updateYuus();
+    updateYuus();
 
     drawNode(sceneNode);
 
-    // requestAnimationFrame(render);
+    requestAnimationFrame(render);
 }
 
 // =====================================
@@ -348,7 +338,7 @@ function initScene() {
     sceneNode = SceneNode([], [], gl.LINES, scale(-1, eye), eye_orientation, 1, eye);
 
     //define Yuus
-    yuu = YuuNode(vec3(0, 3, -3), vec3(0, 0, 10), "state", "spline", vec4(0, 0, 0, 1));
+    yuu = YuuNode(vec3(0, 1.5, 0), vec3(0, 0, 10), "wander", "spline", vec4(0, 0, 0, 1));
     sceneNode.children.push(yuu);
 
     // define ground
@@ -469,16 +459,16 @@ function quatToMat(q) {
 function updateYuus() {
     let delta = .04
     for (let i = 0; i < yuus.length; i++) {
-        if (yuu_states[i] !== 2) continue;
+        let y = yuus[i]
+        if (y.state !== "freefall") continue;
 
-
-        yuu_vels[i][1] -= GRAVITY * delta;
-        yuus[i] = add(yuus[i], scale(delta, yuu_vels[i]));
+        y.vel = subtract(y.vel, vec4(0, GRAVITY * delta, 0, 0));
+        y.pos = add(y.pos, scale(delta, y.vel));
 
         // see if we reached the ground
-        if (yuus[i][1] <= 0) {
-            yuus[i][1] = 0;
-            yuu_states[i] = 0;
+        if (y.pos[1] <= 1.5) {
+            y.pos[1] = 1.5;
+            y.state = "wander";
         }
     }
 }
