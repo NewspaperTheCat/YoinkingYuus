@@ -94,12 +94,13 @@ function updateYuuPosition(y) {
     //switch direction at end
     if (yuuPos >= 1) {
         yuuPos = 1;
-        yuuDir = -1;
+        // yuuDir = 1;
+        regenerateSpline()
     }
-    if (yuuPos <= 0) {
-        yuuPos = 0;
-        yuuDir = 1;
-    }
+    // if (yuuPos <= 0) {
+    //     yuuPos = 0;
+    //     yuuDir = 1;
+    // }
 
     let idx = Math.floor(yuuPos * (splineSamples.length - 1));
     idx = Math.max(0, Math.min(idx, splineSamples.length - 1));
