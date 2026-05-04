@@ -3,8 +3,7 @@
 // referenced by spline generation to get bounds
 // ========================================================
 
-let groundPoints;
-let groundColors;
+let groundNode
 
 let splinePoints = [];
 let splineSamples = [];
@@ -12,22 +11,25 @@ let splineColor = [];
 let splineResolution = 40;
 
 function defineGroundInitial() {
-    groundPoints = [
+    let groundPoints = [
         vec4(-5, 0, 5, 1),
         vec4(5, 0, 5, 1),
         vec4(5, 0, -5, 1),
         vec4(-5, 0, -5, 1)
     ]
-    groundColors = [];
+    let groundColors = oneColorArray(groundPoints, vec4(.6, .6, .6, 1.0));
+    groundNode = new SceneNode(groundPoints, groundColors, gl.TRIANGLE_FAN, vec3(0, 0, 0), vec4(0, 0, 0, 1));
     for (let i = 0; i < groundPoints.length; i++) {
-        groundColors.push(vec4(.6, .6, .6, 1.0));
+        let pin = createPin(groundPoints[i]);
+        groundNode.children.push(pin);
     }
+    sceneNode.children.push(groundNode)
 }
 
 function drawGround() {
     pushUniform("mat4", mat4(), modelLoc);
     pushArrayData(groundPoints, 4, "vPosition");
-    pushArrayData(groundColors, 4,"vColor");
+    pushArrayData(groundColors, 4, "vColor");
     gl.drawArrays(gl.TRIANGLE_FAN, 0, groundPoints.length);
 
     // Draw pins at corners
@@ -37,7 +39,7 @@ function drawGround() {
 }
 
 // draws a bin at that point such that the head of the pin is above it
-function drawPin(point) {
+function createPin(point) {
     // define shape
     let baseRadius = .5;
     let v = [ // vertices
@@ -58,20 +60,14 @@ function drawPin(point) {
     ];
 
     // define colors
-    let colors = [];
-    for (let i = 0; i < points.length; i++) {
-        //colors.push(vec4(.5, .5 + points[i][1] / DETECTION_PLANE_HEIGHT / 2.0, .5, 1.0));
-        colors.push(vec4(.8, .8, .8, 1.0));
-    }
+    let colors = oneColorArray(points, vec4(.8, .8, .8, 1.0));
 
-    pushArrayData(points, 4, posLoc);
-    pushArrayData(colors, 4, colLoc);
+    return new SceneNode(points, colors, gl.TRIANGLE_FAN, point, vec4(0, 0, 0, 1));
+}
 
-    // Push translation for this pin
-    let model = translate(point[0], point[1], point[2]);
-    pushUniform("mat4", model, modelLoc);
-
-    gl.drawArrays(gl.TRIANGLE_FAN, 0, points.length);
+function updateGroundPoint(index, point) {
+    groundNode.points[index] = point;
+    groundNode.children[index].pos = point;
 }
 
 function getGroundBounds() {
