@@ -151,8 +151,9 @@ function drawSpline() {
 }
 
 function regenerateSpline() {
-    let yuuGrounded = vec4(yuu.pos[0], 0, yuu.pos[2], 1)
-    splinePoints = [yuuGrounded] // always start where the yuu is
+    let yuuGrounded = vec4(yuu.pos[0], 0, yuu.pos[2], 1);
+    splinePoints = [yuuGrounded, yuuGrounded]; // always start where the yuu is
+    yuuPos = 0;
     splinePoints.push(...getRandomGroundPoints(4));
     rebuildSpline();
 }
