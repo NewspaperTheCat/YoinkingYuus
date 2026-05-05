@@ -81,8 +81,98 @@ function render() {
     requestAnimationFrame(render);
 }
 
-// =====================================
-// WebGL Interfacing
+function updateYuuPosition(y) {
+    if (!y.spline || y.spline.length < 2) return;
+
+    y.splineProgress += SPLINE_DELTA;
+
+    //switch direction at end
+    if (y.splineProgress >= 1) {
+        regenerateSpline(y)
+    }
+
+    let idx = Math.floor(y.splineProgress * (y.spline.length - 1));
+    idx = Math.max(0, Math.min(idx, y.spline.length - 1));
+
+    let p = y.spline[idx];
+
+    y.pos = vec3(p[0], p[1] + 1, p[2]);
+
+    //determine next index based on direction
+    let nextIdx = idx + 1;
+
+    //fix NaN error
+    if (nextIdx < 0) nextIdx = 1;
+    if (nextIdx >= y.spline.length) nextIdx = y.spline.length - 2;
+
+    let nextP = y.spline[nextIdx];
+
+    let dir = subtract(nextP, p);
+    dir = normalize(vec3(dir[0], dir[1], dir[2]));
+
+    y.rot = directionToQuat(dir);
+}
+
+function animateYuu(y) {
+
+    // This is constant, make it dependent on time elapsed
+    y.model.arms[0].rot = matToQuat(rotateX(-40 * Math.cos(10 * DELTA)));
+    y.model.arms[1].rot = matToQuat(rotateX(40 * Math.cos(10 * DELTA)));
+    y.model.legs[0].rot = matToQuat(rotateX(40 * Math.cos(10 * DELTA)));
+    y.model.legs[1].rot = matToQuat(rotateX(-40 * Math.cos(10 * DELTA)));
+    y.model.forearms[0].rot = matToQuat(rotateX(40 * (Math.sin(10 * DELTA) - 1)));
+    y.model.forearms[1].rot = matToQuat(rotateX(40 * (Math.sin(10 * DELTA) - 1)));
+}
+
+function updateYuus() {
+    for (let i = 0; i < yuus.length; i++) {
+        let y = yuus[i]
+        switch (y.state) {
+            case "freefall":
+                if (y.state !== "freefall") continue;
+
+                y.vel = subtract(y.vel, vec4(0, GRAVITY * DELTA, 0, 0));
+                y.pos = add(y.pos, scale(DELTA, y.vel));
+
+                // see if we reached the ground
+                if (y.pos[1] <= 1.5) {
+                    y.pos[1] = 1.5;
+                    y.state = "wander";
+                    regenerateSpline(y);
+                }
+
+                break;
+            case "wander":
+                updateYuuPosition(y);
+                animateYuu(y);
+        }
+    }
+}
+
+
+
+function directionToQuat(dir) {
+    let forward = vec3(0, 0, 1);
+
+    let d = normalize(dir);
+    let dotp = dot(forward, d);
+
+    if (Math.abs(dotp - 1) < 0.0001)
+        return vec4(0, 0, 0, 1);
+    if (Math.abs(dotp + 1) < 0.0001)
+        return vec4(0, 1, 0, 0);
+
+    let axis = normalize(cross(forward, d));
+    let angle = Math.acos(dotp);
+
+    let s = Math.sin(angle / 2);
+    return normalize(vec4(axis[0] * s, axis[1] * s, axis[2] * s, Math.cos(angle / 2)));
+}
+
+
+/*****************
+ * WEBGL HELPERS *
+ *****************/
 
 /**
  * Pushes a uniform to the shader.
@@ -220,11 +310,11 @@ function Yuu() {
 /**
  * Inherits SceneNode
  * An object representing a Yuu
- * @param {Vec3} pos 
- * @param {Vec3} vel 
- * @param {int} state 0 = wander, 1 = grabbed, 2 = freefall
- * @param {*} spline 
- * @param {Vec4} rotation 
+ * @param {Vec3} pos
+ * @param {Vec3} vel
+ * @param {str} state One of "freefall", "grabbed", "wander", or ""
+ * @param {*} spline
+ * @param {Vec4} rotation
  * @returns {Yuu}
  */
 function YuuNode(pos, vel, state, spline, rotation) {
