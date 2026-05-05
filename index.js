@@ -23,6 +23,7 @@ let modelLoc;
 let posLoc;
 let colLoc;
 
+const NUM_YUUS = 20;
 let yuuModel;
 
 let sceneNode;
@@ -31,6 +32,9 @@ let num_yuus = 3;
 let yuus = [];
 const GRAVITY = 1
 
+const DELTA = .04
+const SPLINE_DELTA = .004
+
 window.onload = function init() {
     canvas = document.getElementById("gl-canvas");
     gl = WebGLUtils.setupWebGL(canvas, null);
@@ -38,7 +42,6 @@ window.onload = function init() {
 
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(0.8, 0.9, 1.0, 1.0);
-
     gl.enable(gl.DEPTH_TEST);
 
     program = initShaders(gl, "vertex-shader", "fragment-shader");
@@ -58,24 +61,27 @@ window.onload = function init() {
     // place initial yuus and ground
     initScene();
 
-    // add listeners
-    canvas.addEventListener("mousedown",
-        (event) => { handleClick(event) });
-    canvas.addEventListener("mousemove",
-        (event) => { handleMouseMove(event) });
-    canvas.addEventListener("mouseup",
-        (event) => { handleRelease(event) });
+    // TEMP
+    for (let yi = 0; yi < yuus.length; yi++) {
+        regenerateSpline(yuus[yi]);
+    }
 
+    // Add listeners
+    canvas.addEventListener("mousedown", (event) => handleClick(event));
+    canvas.addEventListener("mousemove", (event) => handleMouseMove(event));
+    canvas.addEventListener("mouseup", (event) => handleRelease(event));
 
     render();
 };
 
+
 function render() {
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     // update yuus
     updateYuus();
 
+    drawSpline();
     drawNode(sceneNode);
 
     requestAnimationFrame(render);
@@ -180,7 +186,7 @@ function directionToQuat(dir) {
  * otherwise initializes its own one-time-use location using location as the name
  * @param {string} type The type of value being passed in
  * @param {*} value The value to push to the shader uniform
- * @param {string|WebGLUniformLocation} location The location of 
+ * @param {string|WebGLUniformLocation} location The location of
  */
 function pushUniform(type, value, location) {
     if (typeof location === 'string') location = gl.getUniformLocation(program, location);
@@ -245,7 +251,7 @@ let mvMatrix = translate(0, 0, 0);
 
 /**
  * Draw the passed in node and draw its children transformed relative to this node
- * @param {SceneNode} node 
+ * @param {SceneNode} node
  */
 function drawNode(node) {
     stack.push(mvMatrix);
@@ -268,19 +274,12 @@ function drawNode(node) {
 
 // ======================================================
 
-
-// Temporary Yuu Drawing
-function drawYuus() {
-    for (let i = 0; i < yuus.length; i++) {
-        drawTriangle(yuus[i]);
-    }
-}
 /**
  * Create a humanoid figure to do animations with
  * @returns An object containing all the parts of the humanoid
  */
 function Yuu() {
-    //A unit cube to scale around to for the humanoid 
+    //A unit cube to scale around to for the humanoid
     // (stored to only calculate once for the whole model)
     let cube = Cube();
 
@@ -324,6 +323,7 @@ function YuuNode(pos, vel, state, spline, rotation) {
     yuu.vel = vel;
     yuu.state = state;
     yuu.spline = spline;
+    yuu.splineProgress = 0;
     yuus.push(yuu);
     return yuu;
 }
@@ -430,14 +430,22 @@ function initScene() {
 
     sceneNode = SceneNode([], [], gl.LINES, scale(-1, eye), eye_orientation, 1, eye);
 
-    //define Yuus
-    // for (var i = 0; i < num_yuus; i++) {
-    yuu = YuuNode(vec3(0, 1.5, 0), vec3(0, 0, 10), "wander", "spline", vec4(0, 0, 0, 1));
-    // }
-    sceneNode.children.push(yuu);
-
     // define ground
     defineGroundInitial();
+
+    //define Yuus
+    for (let i = 0; i < NUM_YUUS; i++) {
+        let pos = getRandomGroundPoint()
+        pos = vec3(pos[0], 1.5, pos[2])
+        let yuu = YuuNode(pos, vec3(0, 0, 10), "wander", "spline", vec4(0, 0, 0, 1));
+
+        // make the scale varied
+        let min = .04
+        let range = .08
+        let scale = vec3(Math.random() * range + min, Math.random() * range + min, Math.random() * range + min);
+        yuu.scale = scale;
+        sceneNode.children.push(yuu);
+    }
 }
 
 /****************
@@ -483,12 +491,12 @@ function transform(pos, rot, s, pivot) {
 /************************
  * ROTATION TRANSLATION *
 *************************/
-/** 
+/**
  * Turns Euler Angles into a quaternion
  * @param {float} x The x rotation
  * @param {float} y The y rotation
  * @param {float} z The z rotation
- * @returns {Vec4} The quaternion that represents the rotation   
+ * @returns {Vec4} The quaternion that represents the rotation
  */
 function eulerToQuat(x, y, z) {
     return matToQuat(eulerToMat(x, y, z));
@@ -550,20 +558,4 @@ function quatToMat(q) {
     rot[2][1] = 2 * (s * x + y * z);
     rot[2][2] = 1.0 - 2 * (x * x + y * y);
     return rot;
-}
-function updateYuus() {
-    let delta = .04
-    for (let i = 0; i < yuus.length; i++) {
-        let y = yuus[i]
-        if (y.state !== "freefall") continue;
-
-        y.vel = subtract(y.vel, vec4(0, GRAVITY * delta, 0, 0));
-        y.pos = add(y.pos, scale(delta, y.vel));
-
-        // see if we reached the ground
-        if (y.pos[1] <= 1.5) {
-            y.pos[1] = 1.5;
-            y.state = "wander";
-        }
-    }
 }

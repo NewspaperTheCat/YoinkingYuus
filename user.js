@@ -15,9 +15,12 @@ const DETECTION_PLANE_HEIGHT = 1.0;
 const HOLD_DISTANCE = 2;
 const GRAB_DISTANCE = 1;
 
-// takes a mouse event
-// returns a point at y=0 underneath the intersect at DETECTION_PLANE_HEIGHT
-// returns a vec4
+/**
+ * takes a mouse event
+ * returns a point at y=0 underneath the intersect at DETECTION_PLANE_HEIGHT
+ * @param {Event} e 
+ * @returns {Vec4}
+ */
 function getWorldClick(e) {
     // center the input to canvas coordinates
     let screenX = e.clientX - canvas.getBoundingClientRect().left;
@@ -151,6 +154,11 @@ function handleRelease(e) {
     // check for release behavior
     let where = getWorldClick(e);
     switch (selectedType) {
+        case "pin":
+            for (let i = 0; i < yuus.length; i++) {
+                regenerateSpline(yuus[i]);
+            }
+            break;
         case "yuu":
             if (where == null) return; // don't release yuu into the void
 
@@ -163,7 +171,7 @@ function handleRelease(e) {
             yuus[selected].state = "freefall";
             break;
     }
-
+    // spline regenerated upon landing on ground (found in updateYuus())
     selectedType = "";
     selected = -1;
     setCursor("pointer");
