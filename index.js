@@ -67,7 +67,7 @@ window.onload = function init() {
     // Add listeners
     canvas.addEventListener("mousedown", (event) => handleClick(event));
     canvas.addEventListener("mousemove", (event) => handleMouseMove(event));
-    canvas.addEventListener("mouseup",   (event) => handleRelease(event));
+    canvas.addEventListener("mouseup", (event) => handleRelease(event));
 
     render();
 };

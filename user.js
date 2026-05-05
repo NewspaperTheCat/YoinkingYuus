@@ -15,9 +15,12 @@ const DETECTION_PLANE_HEIGHT = 1.0;
 const HOLD_DISTANCE = 2;
 const GRAB_DISTANCE = 1;
 
-// takes a mouse event
-// returns a point at y=0 underneath the intersect at DETECTION_PLANE_HEIGHT
-// returns a vec4
+/**
+ * takes a mouse event
+ * returns a point at y=0 underneath the intersect at DETECTION_PLANE_HEIGHT
+ * @param {Event} e 
+ * @returns {Vec4}
+ */
 function getWorldClick(e) {
     // center the input to canvas coordinates
     let screenX = e.clientX - canvas.getBoundingClientRect().left;
