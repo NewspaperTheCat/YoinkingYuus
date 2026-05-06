@@ -23,17 +23,15 @@ let modelLoc;
 let posLoc;
 let colLoc;
 
+const NUM_YUUS = 20;
 let yuuModel;
 let yuus = [];
 
 let sceneNode;
 const GRAVITY = 1
 
-// TEMP, TO REMOVE
-let yuu;
-let yuuPos = 0;
-let yuuSpeed = 0.002;
-let yuuDir = 1; //+1 = forward, -1 = backward
+const DELTA = .04
+const SPLINE_DELTA = .004
 
 window.onload = function init() {
     canvas = document.getElementById("gl-canvas");
@@ -62,12 +60,14 @@ window.onload = function init() {
     initScene();
 
     // TEMP
-    regenerateSpline();
+    for (let yi = 0; yi < yuus.length; yi++) {
+        regenerateSpline(yuus[yi]);
+    }
 
     // Add listeners
     canvas.addEventListener("mousedown", (event) => handleClick(event));
     canvas.addEventListener("mousemove", (event) => handleMouseMove(event));
-    canvas.addEventListener("mouseup",   (event) => handleRelease(event));
+    canvas.addEventListener("mouseup", (event) => handleRelease(event));
 
     render();
 };
@@ -87,63 +87,67 @@ function render() {
 
 
 function updateYuuPosition(y) {
-    if (!splineSamples || splineSamples.length < 2) return;
+    if (!y.spline || y.spline.length < 2) return;
 
-    yuuPos += yuuSpeed * yuuDir;
+    y.splineProgress += SPLINE_DELTA;
 
     //switch direction at end
-    if (yuuPos >= 1) {
-        yuuPos = 1;
-        yuuDir = -1;
-    }
-    if (yuuPos <= 0) {
-        yuuPos = 0;
-        yuuDir = 1;
+    if (y.splineProgress >= 1) {
+        regenerateSpline(y)
     }
 
-    let idx = Math.floor(yuuPos * (splineSamples.length - 1));
-    idx = Math.max(0, Math.min(idx, splineSamples.length - 1));
+    let idx = Math.floor(y.splineProgress * (y.spline.length - 1));
+    idx = Math.max(0, Math.min(idx, y.spline.length - 1));
 
-    let p = splineSamples[idx];
+    let p = y.spline[idx];
 
-    yuu.pos = vec3(p[0], p[1] + 1, p[2]);
+    y.pos = vec3(p[0], p[1] + 1, p[2]);
 
     //determine next index based on direction
-    let nextIdx = idx + yuuDir;
+    let nextIdx = idx + 1;
 
     //fix NaN error
     if (nextIdx < 0) nextIdx = 1;
-    if (nextIdx >= splineSamples.length) nextIdx = splineSamples.length - 2;
+    if (nextIdx >= y.spline.length) nextIdx = y.spline.length - 2;
 
-    let nextP = splineSamples[nextIdx];
+    let nextP = y.spline[nextIdx];
 
     let dir = subtract(nextP, p);
     dir = normalize(vec3(dir[0], dir[1], dir[2]));
 
-    yuu.rot = directionToQuat(dir);
+    y.rot = directionToQuat(dir);
 }
 
 function updateYuus() {
-    let delta = .04
     for (let i = 0; i < yuus.length; i++) {
-        let y = yuus[i]
+        let y = yuus[i];
+
+        // reset arm pose for everyone every frame
+        y.model.arms[0].rot = vec4(0, 0, 0, 1);
+        y.model.forearms[0].rot = vec4(0, 0, 0, 1);
+        y.model.arms[0].scale = vec3(1/3, 1/2, 1/2);
+        y.model.forearms[0].scale = vec3(1/2, 1, 1/2);
+
         switch (y.state) {
             case "freefall":
-                if (y.state !== "freefall") continue;
+                // use vec3 here
+                y.vel = subtract(y.vel, vec3(0, GRAVITY * DELTA, 0));
+                y.pos = add(y.pos, scale(DELTA, y.vel));
 
-                y.vel = subtract(y.vel, vec4(0, GRAVITY * delta, 0, 0));
-                y.pos = add(y.pos, scale(delta, y.vel));
-
-                // see if we reached the ground
                 if (y.pos[1] <= 1.5) {
                     y.pos[1] = 1.5;
                     y.state = "wander";
-                    regenerateSpline();
+                    regenerateSpline(y);
                 }
-
                 break;
+
+            case "grabbed":
+                animateHeldYuu(y);
+                break;
+
             case "wander":
                 updateYuuPosition(y);
+                break;
         }
     }
 }
@@ -262,13 +266,6 @@ function drawNode(node) {
 
 // ======================================================
 
-
-// Temporary Yuu Drawing
-function drawYuus() {
-    for (let i = 0; i < yuus.length; i++) {
-        drawTriangle(yuus[i]);
-    }
-}
 /**
  * Create a humanoid figure to do animations with
  * @returns An object containing all the parts of the humanoid
@@ -278,7 +275,7 @@ function Yuu() {
     // (stored to only calculate once for the whole model)
     let cube = Cube();
 
-    let forearm1 = SceneNode(cube, oneColorArray(cube, YELLOW), gl.TRIANGLES, vec3(0, -2, 0), vec4(0, 0, 0, 1), vec3(1 / 2, 1, 1 / 2), vec3(0, 1, 0));
+    let forearm1 = SceneNode(cube, oneColorArray(cube, YELLOW), gl.TRIANGLES, vec3(0, -1, 0), vec4(0, 0, 0, 1), vec3(1 / 2, 1, 1 / 2), vec3(0, 1, 0));
     let arm1 = SceneNode(cube, oneColorArray(cube, PURPLE), gl.TRIANGLES, vec3(4 / 3, 1 / 2, 0), vec4(0, 0, 0, 1), vec3(1 / 3, 1 / 2, 1 / 2), vec3(0, .5, 0));
     arm1.children.push(forearm1);
 
@@ -312,11 +309,12 @@ function Yuu() {
  */
 function YuuNode(pos, vel, state, spline, rotation) {
     let yuu = new SceneNode([], [], gl.LINES, pos, rotation, 1 / 10);
-    yuu.model = yuuModel;
+    yuu.model = Yuu();
     yuu.children.push(yuu.model.body);
     yuu.vel = vel;
     yuu.state = state;
     yuu.spline = spline;
+    yuu.splineProgress = 0;
     yuus.push(yuu);
     return yuu;
 }
@@ -423,12 +421,22 @@ function initScene() {
 
     sceneNode = SceneNode([], [], gl.LINES, scale(-1, eye), eye_orientation, 1, eye);
 
-    //define Yuus
-    yuu = YuuNode(vec3(0, 1.5, 0), vec3(0, 0, 10), "wander", "spline", vec4(0, 0, 0, 1));
-    sceneNode.children.push(yuu);
-
     // define ground
     defineGroundInitial();
+
+    //define Yuus
+    for (let i = 0; i < NUM_YUUS; i++) {
+        let pos = getRandomGroundPoint()
+        pos = vec3(pos[0], 1.5, pos[2])
+        let yuu = YuuNode(pos, vec3(0, 0, 10), "wander", "spline", vec4(0, 0, 0, 1));
+
+        // make the scale varied
+        let min = .04
+        let range = .08
+        let scale = vec3(Math.random() * range + min, Math.random() * range + min, Math.random() * range + min);
+        yuu.scale = scale;
+        sceneNode.children.push(yuu);
+    }
 }
 
 /****************
@@ -473,7 +481,7 @@ function transform(pos, rot, s, pivot) {
 
 /************************
  * ROTATION TRANSLATION *
-*************************/
+ *************************/
 /**
  * Turns Euler Angles into a quaternion
  * @param {float} x The x rotation
@@ -541,4 +549,137 @@ function quatToMat(q) {
     rot[2][1] = 2 * (s * x + y * z);
     rot[2][2] = 1.0 - 2 * (x * x + y * y);
     return rot;
+}
+
+function animateHeldYuu(yuu) {
+    let upper = yuu.model.arms[0];
+    let lower = yuu.model.forearms[0];
+
+    //make the arm longer while held
+    yuu.model.arms[0].scale = vec3(1/3, 1.6, 1/2);
+    yuu.model.forearms[0].scale = vec3(1/2, 1.8, 1/2);
+
+    upper.rot = eulerToQuat(90, 0, 0);
+    lower.rot = vec4(0, 0, 0, 1);
+
+    let target = yuu.ikTarget;
+    if (!target) return;
+
+    solveArmIK(yuu, target);
+}
+
+function solveArmIK(yuu, target) {
+    let upper = yuu.model.arms[0];
+    let lower = yuu.model.forearms[0];
+
+    // World positions
+    let shoulder = getWorldPosition(upper);
+    let elbow    = getWorldPosition(lower);
+    let wrist    = getWorldOffset(lower, vec3(0, -1, 0)); // forearm length = 1
+
+    // Bone lengths
+    let L1 = length(subtract(elbow, shoulder)); // upper arm
+    let L2 = length(subtract(wrist, elbow));    // forearm
+
+    // Vector from shoulder to target
+    let toTarget = subtract(target, shoulder);
+    let dist = length(toTarget);
+
+    // Clamp distance to reachable range
+    dist = Math.max(Math.min(dist, L1 + L2 - 0.001), Math.abs(L1 - L2) + 0.001);
+
+    let dir = normalize(toTarget);
+
+    // Law of cosines for elbow angle
+    let a = (L1*L1 - L2*L2 + dist*dist) / (2 * dist);
+    let h = Math.sqrt(L1*L1 - a*a);
+
+    // Base point along the line to target
+    let base = add(shoulder, scale(a, dir));
+
+    // Perpendicular vector for elbow plane
+    let perp = normalize(cross(dir, vec3(0,1,0)));
+    if (length(perp) < 0.001)
+        perp = normalize(cross(dir, vec3(1,0,0)));
+
+    // Final elbow position
+    let elbowPos = add(base, scale(h, perp));
+
+    // Directions for each bone
+    let upperDir = normalize(subtract(elbowPos, shoulder));
+    let lowerDir = normalize(subtract(target, elbowPos));
+
+    // Convert to quaternions
+    upper.rot = quaternionFromVector(upperDir);
+    lower.rot = quaternionFromVector(lowerDir);
+}
+
+function getWorldPosition(node) {
+    let m = mat4();
+    let current = node;
+
+    while (current) {
+        let local = transform(current.pos, current.rot, current.scale, current.pivot);
+        m = mult(local, m);
+        current = findParent(sceneNode, current);
+    }
+
+    return vec3(m[0][3], m[1][3], m[2][3]);
+}
+
+function findParent(root, child) {
+    if (!root.children) return null;
+    for (let c of root.children) {
+        if (c === child) return root;
+        let found = findParent(c, child);
+        if (found) return found;
+    }
+    return null;
+}
+
+function getWorldOffset(node, localOffset) {
+    let m = mat4();
+    let current = node;
+
+    while (current) {
+        let local = transform(current.pos, current.rot, current.scale, current.pivot);
+        m = mult(local, m);
+        current = findParent(sceneNode, current);
+    }
+
+    let p = mult(m, vec4(localOffset[0], localOffset[1], localOffset[2], 1));
+    return vec3(p[0], p[1], p[2]);
+}
+
+function quaternionFromVector(dir) {
+    // Your arm's "forward" direction is DOWN (-Y)
+    let forward = vec3(0, -1, 0);
+
+    let d = normalize(dir);
+    let dotp = dot(forward, d);
+
+    // If vectors are nearly identical
+    if (Math.abs(dotp - 1) < 0.0001)
+        return vec4(0, 0, 0, 1);
+
+    // If vectors are opposite
+    if (Math.abs(dotp + 1) < 0.0001)
+        return vec4(0, 1, 0, 0); // 180° around X
+
+    // Axis = perpendicular to forward and target
+    let axis = normalize(cross(forward, d));
+    let angle = Math.acos(dotp);
+
+    return quaternionFromAxisAngle(axis, angle);
+}
+
+function quaternionFromAxisAngle(axis, angle) {
+    let half = angle / 2;
+    let s = Math.sin(half);
+    return normalize(vec4(
+        axis[0] * s,
+        axis[1] * s,
+        axis[2] * s,
+        Math.cos(half)
+    ));
 }
