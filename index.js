@@ -23,11 +23,13 @@ let modelLoc;
 let posLoc;
 let colLoc;
 
-const NUM_YUUS = 20;
+const NUM_YUUS = 10;
 let yuuModel;
-let yuus = [];
 
 let sceneNode;
+
+let num_yuus = 3;
+let yuus = [];
 const GRAVITY = 1
 
 const DELTA = .04
@@ -85,7 +87,6 @@ function render() {
     requestAnimationFrame(render);
 }
 
-
 function updateYuuPosition(y) {
     if (!y.spline || y.spline.length < 2) return;
 
@@ -101,7 +102,10 @@ function updateYuuPosition(y) {
 
     let p = y.spline[idx];
 
-    y.pos = vec3(p[0], p[1] + 1, p[2]);
+    //sets velocity towards the desired point instead of teleporting straight there
+    y.vel = subtract(vec3(p[0], p[1] + 1, p[2]), y.pos);
+    y.pos = add(y.pos, scale(DELTA, y.vel));
+    // y.pos = vec3(p[0], p[1] + 1, p[2]);
 
     //determine next index based on direction
     let nextIdx = idx + 1;
@@ -118,26 +122,46 @@ function updateYuuPosition(y) {
     y.rot = directionToQuat(dir);
 }
 
+function animateYuu(y) {
+    y.model.arms[0].rot = matToQuat(rotateX(-40 * Math.cos(y.cadance * y.splineProgress)));
+    y.model.arms[1].rot = matToQuat(rotateX(40 * Math.cos(y.cadance * y.splineProgress)));
+    y.model.legs[0].rot = matToQuat(rotateX(40 * Math.cos(y.cadance * y.splineProgress)));
+    y.model.legs[1].rot = matToQuat(rotateX(-40 * Math.cos(y.cadance * y.splineProgress)));
+    y.model.forearms[0].rot = matToQuat(rotateX(40 * (Math.sin(y.cadance * y.splineProgress) - 1)));
+    y.model.forearms[1].rot = matToQuat(rotateX(40 * (Math.sin(y.cadance * y.splineProgress) - 1)));
+}
+
 function updateYuus() {
     for (let i = 0; i < yuus.length; i++) {
-        let y = yuus[i]
+        let y = yuus[i];
+
+        // reset arm pose for everyone every frame
+        y.model.arms[0].rot = vec4(0, 0, 0, 1);
+        y.model.forearms[0].rot = vec4(0, 0, 0, 1);
+        y.model.arms[0].scale = vec3(1 / 3, 1 / 2, 1 / 2);
+        y.model.forearms[0].scale = vec3(1 / 2, 1, 1 / 2);
+
         switch (y.state) {
             case "freefall":
-                if (y.state !== "freefall") continue;
-
-                y.vel = subtract(y.vel, vec4(0, GRAVITY * DELTA, 0, 0));
+                // use vec3 here
+                y.vel = subtract(y.vel, vec3(0, GRAVITY * DELTA, 0));
                 y.pos = add(y.pos, scale(DELTA, y.vel));
 
-                // see if we reached the ground
                 if (y.pos[1] <= 1.5) {
                     y.pos[1] = 1.5;
                     y.state = "wander";
                     regenerateSpline(y);
                 }
-
                 break;
+
+            case "grabbed":
+                animateHeldYuu(y);
+                break;
+
             case "wander":
                 updateYuuPosition(y);
+                animateYuu(y);
+                break;
         }
     }
 }
@@ -161,6 +185,11 @@ function directionToQuat(dir) {
     let s = Math.sin(angle / 2);
     return normalize(vec4(axis[0] * s, axis[1] * s, axis[2] * s, Math.cos(angle / 2)));
 }
+
+
+/*****************
+ * WEBGL HELPERS *
+ *****************/
 
 /**
  * Pushes a uniform to the shader.
@@ -265,7 +294,7 @@ function Yuu() {
     // (stored to only calculate once for the whole model)
     let cube = Cube();
 
-    let forearm1 = SceneNode(cube, oneColorArray(cube, YELLOW), gl.TRIANGLES, vec3(0, -2, 0), vec4(0, 0, 0, 1), vec3(1 / 2, 1, 1 / 2), vec3(0, 1, 0));
+    let forearm1 = SceneNode(cube, oneColorArray(cube, YELLOW), gl.TRIANGLES, vec3(0, -1, 0), vec4(0, 0, 0, 1), vec3(1 / 2, 1, 1 / 2), vec3(0, 1, 0));
     let arm1 = SceneNode(cube, oneColorArray(cube, PURPLE), gl.TRIANGLES, vec3(4 / 3, 1 / 2, 0), vec4(0, 0, 0, 1), vec3(1 / 3, 1 / 2, 1 / 2), vec3(0, .5, 0));
     arm1.children.push(forearm1);
 
@@ -290,21 +319,23 @@ function Yuu() {
 
 /**
  * Inherits SceneNode
+ * An object representing a Yuu
  * @param {Vec3} pos
  * @param {Vec3} vel
- * @param {*} state
+ * @param {str} state One of "freefall", "grabbed", "wander", or ""
  * @param {*} spline
  * @param {Vec4} rotation
  * @returns {Yuu}
  */
 function YuuNode(pos, vel, state, spline, rotation) {
     let yuu = new SceneNode([], [], gl.LINES, pos, rotation, 1 / 10);
-    yuu.model = yuuModel;
+    yuu.model = structuredClone(yuuModel);
     yuu.children.push(yuu.model.body);
     yuu.vel = vel;
     yuu.state = state;
     yuu.spline = spline;
     yuu.splineProgress = 0;
+    yuu.cadance = Math.random() * 90 + 10
     yuus.push(yuu);
     return yuu;
 }
@@ -471,7 +502,7 @@ function transform(pos, rot, s, pivot) {
 
 /************************
  * ROTATION TRANSLATION *
-*************************/
+ *************************/
 /**
  * Turns Euler Angles into a quaternion
  * @param {float} x The x rotation
@@ -539,4 +570,137 @@ function quatToMat(q) {
     rot[2][1] = 2 * (s * x + y * z);
     rot[2][2] = 1.0 - 2 * (x * x + y * y);
     return rot;
+}
+
+function animateHeldYuu(yuu) {
+    let upper = yuu.model.arms[0];
+    let lower = yuu.model.forearms[0];
+
+    //make the arm longer while held
+    yuu.model.arms[0].scale = vec3(1 / 3, 1.6, 1 / 2);
+    yuu.model.forearms[0].scale = vec3(1 / 2, 1.8, 1 / 2);
+
+    upper.rot = eulerToQuat(90, 0, 0);
+    lower.rot = vec4(0, 0, 0, 1);
+
+    let target = yuu.ikTarget;
+    if (!target) return;
+
+    solveArmIK(yuu, target);
+}
+
+function solveArmIK(yuu, target) {
+    let upper = yuu.model.arms[0];
+    let lower = yuu.model.forearms[0];
+
+    // World positions
+    let shoulder = getWorldPosition(upper);
+    let elbow = getWorldPosition(lower);
+    let wrist = getWorldOffset(lower, vec3(0, -1, 0)); // forearm length = 1
+
+    // Bone lengths
+    let L1 = length(subtract(elbow, shoulder)); // upper arm
+    let L2 = length(subtract(wrist, elbow));    // forearm
+
+    // Vector from shoulder to target
+    let toTarget = subtract(target, shoulder);
+    let dist = length(toTarget);
+
+    // Clamp distance to reachable range
+    dist = Math.max(Math.min(dist, L1 + L2 - 0.001), Math.abs(L1 - L2) + 0.001);
+
+    let dir = normalize(toTarget);
+
+    // Law of cosines for elbow angle
+    let a = (L1 * L1 - L2 * L2 + dist * dist) / (2 * dist);
+    let h = Math.sqrt(L1 * L1 - a * a);
+
+    // Base point along the line to target
+    let base = add(shoulder, scale(a, dir));
+
+    // Perpendicular vector for elbow plane
+    let perp = normalize(cross(dir, vec3(0, 1, 0)));
+    if (length(perp) < 0.001)
+        perp = normalize(cross(dir, vec3(1, 0, 0)));
+
+    // Final elbow position
+    let elbowPos = add(base, scale(h, perp));
+
+    // Directions for each bone
+    let upperDir = normalize(subtract(elbowPos, shoulder));
+    let lowerDir = normalize(subtract(target, elbowPos));
+
+    // Convert to quaternions
+    upper.rot = quaternionFromVector(upperDir);
+    lower.rot = quaternionFromVector(lowerDir);
+}
+
+function getWorldPosition(node) {
+    let m = mat4();
+    let current = node;
+
+    while (current) {
+        let local = transform(current.pos, current.rot, current.scale, current.pivot);
+        m = mult(local, m);
+        current = findParent(sceneNode, current);
+    }
+
+    return vec3(m[0][3], m[1][3], m[2][3]);
+}
+
+function findParent(root, child) {
+    if (!root.children) return null;
+    for (let c of root.children) {
+        if (c === child) return root;
+        let found = findParent(c, child);
+        if (found) return found;
+    }
+    return null;
+}
+
+function getWorldOffset(node, localOffset) {
+    let m = mat4();
+    let current = node;
+
+    while (current) {
+        let local = transform(current.pos, current.rot, current.scale, current.pivot);
+        m = mult(local, m);
+        current = findParent(sceneNode, current);
+    }
+
+    let p = mult(m, vec4(localOffset[0], localOffset[1], localOffset[2], 1));
+    return vec3(p[0], p[1], p[2]);
+}
+
+function quaternionFromVector(dir) {
+    // Your arm's "forward" direction is DOWN (-Y)
+    let forward = vec3(0, -1, 0);
+
+    let d = normalize(dir);
+    let dotp = dot(forward, d);
+
+    // If vectors are nearly identical
+    if (Math.abs(dotp - 1) < 0.0001)
+        return vec4(0, 0, 0, 1);
+
+    // If vectors are opposite
+    if (Math.abs(dotp + 1) < 0.0001)
+        return vec4(0, 1, 0, 0); // 180° around X
+
+    // Axis = perpendicular to forward and target
+    let axis = normalize(cross(forward, d));
+    let angle = Math.acos(dotp);
+
+    return quaternionFromAxisAngle(axis, angle);
+}
+
+function quaternionFromAxisAngle(axis, angle) {
+    let half = angle / 2;
+    let s = Math.sin(half);
+    return normalize(vec4(
+        axis[0] * s,
+        axis[1] * s,
+        axis[2] * s,
+        Math.cos(half)
+    ));
 }
