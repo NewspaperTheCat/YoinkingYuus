@@ -18,7 +18,7 @@ const GRAB_DISTANCE = 1;
 /**
  * takes a mouse event
  * returns a point at y=0 underneath the intersect at DETECTION_PLANE_HEIGHT
- * @param {Event} e 
+ * @param {Event} e
  * @returns {Vec4}
  */
 function getWorldClick(e) {
@@ -109,18 +109,32 @@ function handleMouseMove(e) {
     }
     let where3 = vec3(where[0], where[1], where[2]);
 
-    // apply action to closest, whatever it may be
     switch (selectedType) {
         case "pin":
             updateGroundPoint(selected, where);
             break;
+
         case "yuu":
+            yuus[selected].ikTarget = where3;
+
             let n = subtract(where3, eye);
             let dir = normalize(n);
             let pos = add(scale(HOLD_DISTANCE, dir), eye);
-            yuus[selected].pos = vec4(pos[0], pos[1], pos[2], 1.0);
+
+            let offset = vec3(0, 0.5, 0);
+
+            let desired = subtract(vec3(pos[0], pos[1], pos[2]), offset);
+            let delta = subtract(desired, yuus[selected].pos);
+
+            let maxStep = 0.15; // max movement per frame
+
+            if (length(delta) > maxStep) {
+                delta = scale(maxStep / length(delta), delta);
+            }
+
+            yuus[selected].pos = add(yuus[selected].pos, delta);
+            yuus[selected].rot = eulerToQuat(0, 0, 0);
             break;
-        // ignore if we found nothing
     }
 
     // on hover cursor change logic
@@ -167,7 +181,7 @@ function handleRelease(e) {
             let v_x = (where[0] - eye[0]) / t
             let v_z = (where[2] - eye[2]) / t
 
-            yuus[selected].vel = vec4(v_x, 0, v_z, 0);
+            yuus[selected].vel = vec3(v_x, 0, v_z);
             yuus[selected].state = "freefall"; // into freefall
             break;
     }
