@@ -74,6 +74,9 @@ window.onload = function init() {
     render();
 };
 
+/*************
+ * ANIMATION *
+ *************/
 
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -131,6 +134,23 @@ function animateYuu(y) {
     y.model.forearms[1].rot = matToQuat(rotateX(40 * (Math.sin(y.cadance * y.splineProgress) - 1)));
 }
 
+function animateHeldYuu(yuu) {
+    let upper = yuu.model.arms[0];
+    let lower = yuu.model.forearms[0];
+
+    //make the arm longer while held
+    yuu.model.arms[0].scale = vec3(1 / 3, 1.6, 1 / 2);
+    yuu.model.forearms[0].scale = vec3(1 / 2, 1.8, 1 / 2);
+
+    upper.rot = eulerToQuat(90, 0, 0);
+    lower.rot = vec4(0, 0, 0, 1);
+
+    let target = yuu.ikTarget;
+    if (!target) return;
+
+    solveArmIK(yuu, target);
+}
+
 function updateYuus() {
     for (let i = 0; i < yuus.length; i++) {
         let y = yuus[i];
@@ -165,27 +185,6 @@ function updateYuus() {
         }
     }
 }
-
-
-
-function directionToQuat(dir) {
-    let forward = vec3(0, 0, 1);
-
-    let d = normalize(dir);
-    let dotp = dot(forward, d);
-
-    if (Math.abs(dotp - 1) < 0.0001)
-        return vec4(0, 0, 0, 1);
-    if (Math.abs(dotp + 1) < 0.0001)
-        return vec4(0, 1, 0, 0);
-
-    let axis = normalize(cross(forward, d));
-    let angle = Math.acos(dotp);
-
-    let s = Math.sin(angle / 2);
-    return normalize(vec4(axis[0] * s, axis[1] * s, axis[2] * s, Math.cos(angle / 2)));
-}
-
 
 /*****************
  * WEBGL HELPERS *
@@ -238,6 +237,38 @@ function pushArrayData(array, size, location) {
     gl.enableVertexAttribArray(location);
 }
 
+/**
+ * Creates a list of colors that will correspond to the vetecies of Cube() in order to make the faces the designated colors
+ * @param {Vec4} front The color of the front face
+ * @param {Vec4} back The color of the back face
+ * @param {Vec4} top The color of the top face
+ * @param {Vec4} bottom The color of the bottom face
+ * @param {Vec4} right The color of the right face
+ * @param {Vec4} left The color of the left face
+ * @returns {Vec4[]}A list of colors
+ */
+function cubeColorsArray(front, back, top, bottom, right, left) {
+    let faces = [front, back, top, bottom, right, left]
+    let colors = [];
+    for (var i = 0; i < 36; i++) {
+        colors.push(faces[Math.floor(i / 6)]);
+    }
+    return colors;
+}
+
+/**
+ * Creates a list of colors that will correspond to the passed set of points
+ * @param {Vec4[]} points The set of points of the object to color (only length is used)
+ * @param {Vec4} color The color to apply to all points
+ * @returns {Vec4[]} A list of colors
+ */
+function oneColorArray(points, color) {
+    let clrs = [];
+    for (let _ of points) {
+        clrs.push(color);
+    }
+    return clrs;
+}
 
 /*************
  * HIERARCHY *
@@ -283,7 +314,20 @@ function drawNode(node) {
     mvMatrix = stack.pop();
 }
 
-// ======================================================
+function findParent(root, child) {
+    if (!root.children) return null;
+    for (let c of root.children) {
+        if (c === child) return root;
+        let found = findParent(c, child);
+        if (found) return found;
+    }
+    return null;
+}
+
+
+/**********************
+ * OBJECTS AND SHAPES *
+ **********************/
 
 /**
  * Create a humanoid figure to do animations with
@@ -400,39 +444,35 @@ function Cube() {
     return points;
 }
 
+/*********
+ * WORLD *
+ *********/
 
-/**
- * Creates a list of colors that will correspond to the vetecies of Cube() in order to make the faces the designated colors
- * @param {Vec4} front The color of the front face
- * @param {Vec4} back The color of the back face
- * @param {Vec4} top The color of the top face
- * @param {Vec4} bottom The color of the bottom face
- * @param {Vec4} right The color of the right face
- * @param {Vec4} left The color of the left face
- * @returns {Vec4[]}A list of colors
- */
-function cubeColorsArray(front, back, top, bottom, right, left) {
-    let faces = [front, back, top, bottom, right, left]
-    let colors = [];
-    for (var i = 0; i < 36; i++) {
-        colors.push(faces[Math.floor(i / 6)]);
-    }
-    return colors;
-}
-/**
- * Creates a list of colors that will correspond to the passed set of points
- * @param {Vec4[]} points The set of points of the object to color (only length is used)
- * @param {Vec4} color The color to apply to all points
- * @returns {Vec4[]} A list of colors
- */
-function oneColorArray(points, color) {
-    let clrs = [];
-    for (let _ of points) {
-        clrs.push(color);
-    }
-    return clrs;
-}
+function getWorldPosition(node) {
+    let m = mat4();
+    let current = node;
 
+    while (current) {
+        let local = transform(current.pos, current.rot, current.scale, current.pivot);
+        m = mult(local, m);
+        current = findParent(sceneNode, current);
+    }
+
+    return vec3(m[0][3], m[1][3], m[2][3]);
+}
+function getWorldOffset(node, localOffset) {
+    let m = mat4();
+    let current = node;
+
+    while (current) {
+        let local = transform(current.pos, current.rot, current.scale, current.pivot);
+        m = mult(local, m);
+        current = findParent(sceneNode, current);
+    }
+
+    let p = mult(m, vec4(localOffset[0], localOffset[1], localOffset[2], 1));
+    return vec3(p[0], p[1], p[2]);
+}
 
 /**
  * Initializes the node for the scene, creating and adding the humanoid to the tree
@@ -571,23 +611,73 @@ function quatToMat(q) {
     rot[2][2] = 1.0 - 2 * (x * x + y * y);
     return rot;
 }
+/**
+ * Turns the direction facing into a rotation quaternion
+ * (I'm not certain the difference from directionToQuat())
+ * @param {Vec3} dir 
+ * @returns 
+ */
+function quaternionFromVector(dir) {
+    // Your arm's "forward" direction is DOWN (-Y)
+    let forward = vec3(0, -1, 0);
 
-function animateHeldYuu(yuu) {
-    let upper = yuu.model.arms[0];
-    let lower = yuu.model.forearms[0];
+    let d = normalize(dir);
+    let dotp = dot(forward, d);
 
-    //make the arm longer while held
-    yuu.model.arms[0].scale = vec3(1 / 3, 1.6, 1 / 2);
-    yuu.model.forearms[0].scale = vec3(1 / 2, 1.8, 1 / 2);
+    // If vectors are nearly identical
+    if (Math.abs(dotp - 1) < 0.0001)
+        return vec4(0, 0, 0, 1);
 
-    upper.rot = eulerToQuat(90, 0, 0);
-    lower.rot = vec4(0, 0, 0, 1);
+    // If vectors are opposite
+    if (Math.abs(dotp + 1) < 0.0001)
+        return vec4(0, 1, 0, 0); // 180° around X
 
-    let target = yuu.ikTarget;
-    if (!target) return;
+    // Axis = perpendicular to forward and target
+    let axis = normalize(cross(forward, d));
+    let angle = Math.acos(dotp);
 
-    solveArmIK(yuu, target);
+    return quaternionFromAxisAngle(axis, angle);
 }
+/**
+ * Turns an arbitrary axis rotation into a quaternion representing the same rotation
+ * @param {Vec3} axis 
+ * @param {float} angle in radians 
+ * @returns 
+ */
+function quaternionFromAxisAngle(axis, angle) {
+    let half = angle / 2;
+    let s = Math.sin(half);
+    return normalize(vec4(
+        axis[0] * s,
+        axis[1] * s,
+        axis[2] * s,
+        Math.cos(half)
+    ));
+}
+/**
+ * Turns the direction facing into a rotation quaternion
+ * (I'm not certain the difference from quaternionFromVector())
+ * @param {Vec3} dir 
+ * @returns 
+ */
+function directionToQuat(dir) {
+    let forward = vec3(0, 0, 1);
+
+    let d = normalize(dir);
+    let dotp = dot(forward, d);
+
+    if (Math.abs(dotp - 1) < 0.0001)
+        return vec4(0, 0, 0, 1);
+    if (Math.abs(dotp + 1) < 0.0001)
+        return vec4(0, 1, 0, 0);
+
+    let axis = normalize(cross(forward, d));
+    let angle = Math.acos(dotp);
+
+    let s = Math.sin(angle / 2);
+    return normalize(vec4(axis[0] * s, axis[1] * s, axis[2] * s, Math.cos(angle / 2)));
+}
+
 
 function solveArmIK(yuu, target) {
     let upper = yuu.model.arms[0];
@@ -635,72 +725,4 @@ function solveArmIK(yuu, target) {
     lower.rot = quaternionFromVector(lowerDir);
 }
 
-function getWorldPosition(node) {
-    let m = mat4();
-    let current = node;
 
-    while (current) {
-        let local = transform(current.pos, current.rot, current.scale, current.pivot);
-        m = mult(local, m);
-        current = findParent(sceneNode, current);
-    }
-
-    return vec3(m[0][3], m[1][3], m[2][3]);
-}
-
-function findParent(root, child) {
-    if (!root.children) return null;
-    for (let c of root.children) {
-        if (c === child) return root;
-        let found = findParent(c, child);
-        if (found) return found;
-    }
-    return null;
-}
-
-function getWorldOffset(node, localOffset) {
-    let m = mat4();
-    let current = node;
-
-    while (current) {
-        let local = transform(current.pos, current.rot, current.scale, current.pivot);
-        m = mult(local, m);
-        current = findParent(sceneNode, current);
-    }
-
-    let p = mult(m, vec4(localOffset[0], localOffset[1], localOffset[2], 1));
-    return vec3(p[0], p[1], p[2]);
-}
-
-function quaternionFromVector(dir) {
-    // Your arm's "forward" direction is DOWN (-Y)
-    let forward = vec3(0, -1, 0);
-
-    let d = normalize(dir);
-    let dotp = dot(forward, d);
-
-    // If vectors are nearly identical
-    if (Math.abs(dotp - 1) < 0.0001)
-        return vec4(0, 0, 0, 1);
-
-    // If vectors are opposite
-    if (Math.abs(dotp + 1) < 0.0001)
-        return vec4(0, 1, 0, 0); // 180° around X
-
-    // Axis = perpendicular to forward and target
-    let axis = normalize(cross(forward, d));
-    let angle = Math.acos(dotp);
-
-    return quaternionFromAxisAngle(axis, angle);
-}
-
-function quaternionFromAxisAngle(axis, angle) {
-    let half = angle / 2;
-    let s = Math.sin(half);
-    return normalize(vec4(
-        axis[0] * s,
-        axis[1] * s,
-        axis[2] * s,
-        Math.cos(half)
-    ));
-}
