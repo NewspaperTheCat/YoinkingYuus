@@ -126,7 +126,7 @@ function handleMouseMove(e) {
             let desired = subtract(vec3(pos[0], pos[1], pos[2]), offset);
             let delta = subtract(desired, yuus[selected].pos);
 
-            let maxStep = 0.05; // max movement per frame
+            let maxStep = 0.15; // max movement per frame
 
             if (length(delta) > maxStep) {
                 delta = scale(maxStep / length(delta), delta);
