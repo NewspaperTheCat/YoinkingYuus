@@ -160,6 +160,7 @@ function updateYuus() {
 
             case "wander":
                 updateYuuPosition(y);
+                animateYuu(y);
                 break;
         }
     }
