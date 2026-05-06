@@ -23,7 +23,7 @@ let modelLoc;
 let posLoc;
 let colLoc;
 
-const NUM_YUUS = 20;
+const NUM_YUUS = 10;
 let yuuModel;
 
 let sceneNode;
@@ -102,7 +102,10 @@ function updateYuuPosition(y) {
 
     let p = y.spline[idx];
 
-    y.pos = vec3(p[0], p[1] + 1, p[2]);
+    //sets velocity towards the desired point instead of teleporting straight there
+    y.vel = subtract(vec3(p[0], p[1] + 1, p[2]), y.pos);
+    y.pos = add(y.pos, scale(DELTA, y.vel));
+    // y.pos = vec3(p[0], p[1] + 1, p[2]);
 
     //determine next index based on direction
     let nextIdx = idx + 1;
@@ -120,14 +123,12 @@ function updateYuuPosition(y) {
 }
 
 function animateYuu(y) {
-
-    // This is constant, make it dependent on time elapsed
-    y.model.arms[0].rot = matToQuat(rotateX(-40 * Math.cos(10 * DELTA)));
-    y.model.arms[1].rot = matToQuat(rotateX(40 * Math.cos(10 * DELTA)));
-    y.model.legs[0].rot = matToQuat(rotateX(40 * Math.cos(10 * DELTA)));
-    y.model.legs[1].rot = matToQuat(rotateX(-40 * Math.cos(10 * DELTA)));
-    y.model.forearms[0].rot = matToQuat(rotateX(40 * (Math.sin(10 * DELTA) - 1)));
-    y.model.forearms[1].rot = matToQuat(rotateX(40 * (Math.sin(10 * DELTA) - 1)));
+    y.model.arms[0].rot = matToQuat(rotateX(-40 * Math.cos(y.cadance * y.splineProgress)));
+    y.model.arms[1].rot = matToQuat(rotateX(40 * Math.cos(y.cadance * y.splineProgress)));
+    y.model.legs[0].rot = matToQuat(rotateX(40 * Math.cos(y.cadance * y.splineProgress)));
+    y.model.legs[1].rot = matToQuat(rotateX(-40 * Math.cos(y.cadance * y.splineProgress)));
+    y.model.forearms[0].rot = matToQuat(rotateX(40 * (Math.sin(y.cadance * y.splineProgress) - 1)));
+    y.model.forearms[1].rot = matToQuat(rotateX(40 * (Math.sin(y.cadance * y.splineProgress) - 1)));
 }
 
 function updateYuus() {
@@ -137,7 +138,7 @@ function updateYuus() {
             case "freefall":
                 if (y.state !== "freefall") continue;
 
-                y.vel = subtract(y.vel, vec4(0, GRAVITY * DELTA, 0, 0));
+                y.vel = subtract(y.vel, vec3(0, GRAVITY * DELTA, 0));
                 y.pos = add(y.pos, scale(DELTA, y.vel));
 
                 // see if we reached the ground
@@ -151,6 +152,9 @@ function updateYuus() {
             case "wander":
                 updateYuuPosition(y);
                 animateYuu(y);
+                break;
+            case "grabbed":
+                break;
         }
     }
 }
@@ -318,12 +322,13 @@ function Yuu() {
  */
 function YuuNode(pos, vel, state, spline, rotation) {
     let yuu = new SceneNode([], [], gl.LINES, pos, rotation, 1 / 10);
-    yuu.model = yuuModel;
+    yuu.model = structuredClone(yuuModel);
     yuu.children.push(yuu.model.body);
     yuu.vel = vel;
     yuu.state = state;
     yuu.spline = spline;
     yuu.splineProgress = 0;
+    yuu.cadance = Math.random() * 90 + 10
     yuus.push(yuu);
     return yuu;
 }

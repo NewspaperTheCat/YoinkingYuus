@@ -118,7 +118,7 @@ function handleMouseMove(e) {
             let n = subtract(where3, eye);
             let dir = normalize(n);
             let pos = add(scale(HOLD_DISTANCE, dir), eye);
-            yuus[selected].pos = vec4(pos[0], pos[1], pos[2], 1.0);
+            yuus[selected].pos = vec3(pos[0], pos[1], pos[2]);
             break;
         // ignore if we found nothing
     }
@@ -167,7 +167,7 @@ function handleRelease(e) {
             let v_x = (where[0] - eye[0]) / t
             let v_z = (where[2] - eye[2]) / t
 
-            yuus[selected].vel = vec4(v_x, 0, v_z, 0);
+            yuus[selected].vel = vec3(v_x, 0, v_z);
             yuus[selected].state = "freefall";
             break;
     }
