@@ -139,8 +139,9 @@ function animateHeldYuu(yuu) {
     let lower = yuu.model.forearms[0];
 
     //make the arm longer while held
-    yuu.model.arms[0].scale = vec3(1 / 3, 1.6, 1 / 2);
-    yuu.model.forearms[0].scale = vec3(1 / 2, 1.8, 1 / 2);
+    // yuu.model.arms[0].scale = vec3(1 / 3, 1.6, 1 / 2);
+    // yuu.model.forearms[0].scale = vec3(1 / 2, 1.8, 1 / 2);
+    // With the pivots corrected, I think this doesn't look as good
 
     upper.rot = eulerToQuat(90, 0, 0);
     lower.rot = vec4(0, 0, 0, 1);
@@ -540,6 +541,10 @@ function transform(pos, rot, s, pivot) {
     return ans;
 }
 
+function clamp(x, u_bnd, l_bnd) {
+    return Math.max(Math.min(x, u_bnd), l_bnd);
+}
+
 /************************
  * ROTATION TRANSLATION *
  *************************/
@@ -684,20 +689,20 @@ function solveArmIK(yuu, target) {
     let lower = yuu.model.forearms[0];
 
     // World positions
-    let shoulder = getWorldPosition(upper);
-    let elbow = getWorldPosition(lower);
-    let wrist = getWorldOffset(lower, vec3(0, -1, 0)); // forearm length = 1
+    let shoulder = getWorldOffset(upper, upper.pivot);
+    let elbow = getWorldOffset(lower, lower.pivot);
+    let wrist = getWorldOffset(lower, scale(-1, lower.pivot)); // forearm length = 1
 
     // Bone lengths
-    let L1 = length(subtract(elbow, shoulder)); // upper arm
-    let L2 = length(subtract(wrist, elbow));    // forearm
+    let L1 = 2 * length(upper.pivot); // upper arm
+    let L2 = 2 * length(lower.pivot);    // forearm
 
     // Vector from shoulder to target
     let toTarget = subtract(target, shoulder);
     let dist = length(toTarget);
 
     // Clamp distance to reachable range
-    dist = Math.max(Math.min(dist, L1 + L2 - 0.001), Math.abs(L1 - L2) + 0.001);
+    dist = clamp(dist, L1 + L2 - 0.001, Math.abs(L1 - L2) + 0.001);
 
     let dir = normalize(toTarget);
 

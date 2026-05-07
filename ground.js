@@ -50,6 +50,24 @@ function createPin(point) {
 }
 
 function updateGroundPoint(index, point) {
+    switch (index) {
+        case 0:
+            point[0] = clamp(point[0], 0, -20);
+            point[2] = clamp(point[2], 20, 0);
+            break;
+        case 1:
+            point[0] = clamp(point[0], 20, 0);
+            point[2] = clamp(point[2], 20, 0);
+            break;
+        case 2:
+            point[0] = clamp(point[0], 20, 0);
+            point[2] = clamp(point[2], 0, -20);
+            break;
+        case 3:
+            point[0] = clamp(point[0], 0, -20);
+            point[2] = clamp(point[2], 0, -20);
+            break;
+    }
     groundNode.points[index] = point;
     groundNode.children[index].pos = point;
 }
@@ -93,20 +111,20 @@ function catmullRom(p0, p1, p2, p3, t) {
     let t2 = t * t;
     let t3 = t2 * t;
 
-    let x = 0.5 * ((2*p1[0]) +
+    let x = 0.5 * ((2 * p1[0]) +
         (-p0[0] + p2[0]) * t +
-        (2*p0[0] - 5*p1[0] + 4*p2[0] - p3[0]) * t2 +
-        (-p0[0] + 3*p1[0] - 3*p2[0] + p3[0]) * t3);
+        (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
+        (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
 
-    let y = 0.5 * ((2*p1[1]) +
+    let y = 0.5 * ((2 * p1[1]) +
         (-p0[1] + p2[1]) * t +
-        (2*p0[1] - 5*p1[1] + 4*p2[1] - p3[1]) * t2 +
-        (-p0[1] + 3*p1[1] - 3*p2[1] + p3[1]) * t3);
+        (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
+        (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
 
-    let z = 0.5 * ((2*p1[2]) +
+    let z = 0.5 * ((2 * p1[2]) +
         (-p0[2] + p2[2]) * t +
-        (2*p0[2] - 5*p1[2] + 4*p2[2] - p3[2]) * t2 +
-        (-p0[2] + 3*p1[2] - 3*p2[2] + p3[2]) * t3);
+        (2 * p0[2] - 5 * p1[2] + 4 * p2[2] - p3[2]) * t2 +
+        (-p0[2] + 3 * p1[2] - 3 * p2[2] + p3[2]) * t3);
 
     return vec4(x, y, z, 1);
 }
@@ -118,9 +136,9 @@ function rebuildSpline(yuu, splinePoints) {
 
     for (let i = 0; i < splinePoints.length - 3; i++) {
         let p0 = splinePoints[i];
-        let p1 = splinePoints[i+1];
-        let p2 = splinePoints[i+2];
-        let p3 = splinePoints[i+3];
+        let p1 = splinePoints[i + 1];
+        let p2 = splinePoints[i + 2];
+        let p3 = splinePoints[i + 3];
 
         for (let t = 0; t <= 1; t += 1 / splineResolution) {
             let pt = catmullRom(p0, p1, p2, p3, t);
