@@ -38,7 +38,8 @@ You can interact with the Yuus moving around and the pins in the corner of the g
 
 # What challenges you faced in completing the project.
 Our group of 3 had 2 seniors who were wrapping up their respective MQPs. This added a lot of stress to time management and required effect team communication to reach this course's objectives while respecting the various due dates and workloads.
-Calculating valid points within the ground plane proved to be rather difficult, especially with the ground being so adaptive.
+Calculating valid points within the ground plane proved to be rather difficult, especially with the ground being so adaptive,
+specifically the problem was when it was self-intersecting, and also a visual discrepancy sometimes when it's concave.
 Inverse Kinematics was generally difficult.
 The team had varying familiarity with the systems we each made. This only arose as an issue with core systems like the click detection and hierarchical node structure as a decent understanding was required to make any progress.
 
